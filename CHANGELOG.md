@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-06-22
+
+### Fixed
+
+- Parse only the total-force block from verbose `pw.x` output instead of
+  allowing later decomposed force contributions to overwrite it.
+- Refresh derived `forces.dat` files when preserving existing QE output, so
+  previously misparsed force tables are repaired without rerunning `pw.x`.
+
 ## [0.2.1] - 2026-06-22
 
 ### Changed
@@ -63,7 +72,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Tag-triggered Linux release packaging through GitHub Actions.
 - BSD 3-Clause licensing.
 
-[Unreleased]: https://github.com/wxia529/fdvib/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/wxia529/fdvib/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/wxia529/fdvib/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/wxia529/fdvib/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/wxia529/fdvib/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/wxia529/fdvib/compare/v0.1.0...v0.1.1

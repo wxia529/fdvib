@@ -40,6 +40,10 @@ cat > "$case_dir/fake_pw.sh" <<'EOF'
 cat <<'OUTPUT'
 Forces acting on atoms
      atom    1 type  1   force =     0.10000000   -0.20000000    0.30000000
+The non-local contrib. to forces
+     atom    1 type  1   force =     9.00000000    8.00000000    7.00000000
+DFT-D3 dispersion contribution to forces:
+     atom    1 type  1   force =    -9.00000000   -8.00000000   -7.00000000
 JOB DONE.
 OUTPUT
 EOF

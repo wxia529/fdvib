@@ -143,15 +143,21 @@ std::vector<Vec3> parse_forces(const fs::path &output, int nat) {
     std::regex re(R"(^\s*atom\s+(\d+)\s+type\s+\d+\s+force\s*=\s*([-+0-9.EeDd]+)\s+([-+0-9.EeDd]+)\s+([-+0-9.EeDd]+))", std::regex::icase);
     std::vector<Vec3> f(nat);
     std::vector<bool> got(nat, false);
-    std::string line; std::smatch m;
-    while (std::getline(in, line)) if (std::regex_search(line, m, re)) {
-        const int i = std::stoi(m[1]) - 1;
-        if (i >= 0 && i < nat) {
-            f[i] = {number(m[2]), number(m[3]), number(m[4])}; got[i] = true;
+    std::string line; std::smatch m; bool started = false; int count = 0;
+    while (std::getline(in, line)) {
+        if (std::regex_search(line, m, re)) {
+            started = true;
+            const int i = std::stoi(m[1]) - 1;
+            if (i < 0 || i >= nat || got[i])
+                throw std::runtime_error("Invalid/duplicate atom in force block: " + output.string());
+            f[i] = {number(m[2]), number(m[3]), number(m[4])};
+            got[i] = true;
+            if (++count == nat) return f;
+        } else if (started) {
+            break;
         }
     }
-    if (std::count(got.begin(), got.end(), true) != nat) throw std::runtime_error("Incomplete force block: " + output.string());
-    return f;
+    throw std::runtime_error("Incomplete force block: " + output.string());
 }
 
 void write_forces(const fs::path &p, const std::vector<Vec3> &f, const fs::path &source) {
@@ -187,7 +193,7 @@ void run_jobs(const Settings &s) {
         ls >> id >> atom >> axis >> sign >> disp >> rel;
         const auto dir = s.workdir / rel, input = dir / (id + ".in"), output = dir / (id + ".out"), forces = dir / "forces.dat";
         if (fs::exists(output)) {
-            if (!fs::exists(forces)) write_forces(forces, parse_forces(output, q.nat), output);
+            write_forces(forces, parse_forces(output, q.nat), output);
             ++skipped; continue;
         }
         const std::string cmd = (s.mpi_command.empty() ? "" : s.mpi_command + " ") + s.pw_command + " -in " + shell_quote(fs::relative(input, s.root).string());

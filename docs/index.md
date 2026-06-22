@@ -354,7 +354,9 @@ disp_0065_x_p/
 `-- out/
 ```
 
-`forces.dat` contains the last complete QE force block in `Ry/Bohr`.
+`forces.dat` contains the total forces from the last complete QE force block in
+`Ry/Bohr`. Verbose non-local, ionic, Hubbard, SCF-correction, dispersion, and
+other decomposed force contributions printed afterward are ignored.
 
 FDVIB checks:
 
@@ -365,9 +367,9 @@ FDVIB checks:
 - the presence of a complete force block;
 - agreement between the number of forces and `nat`.
 
-If an output file already exists, FDVIB will not rerun that job. If the output
-is complete but `forces.dat` is missing, it extracts the forces from the
-existing output.
+If an output file already exists, FDVIB will not rerun that job. It validates
+the existing output and refreshes the derived `forces.dat` from its total-force
+block. This also repairs force tables produced by older parser versions.
 
 ## `analyze` command
 
