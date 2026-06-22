@@ -19,7 +19,7 @@ inline constexpr double KB_EV = 8.617333262145179e-5;
 inline constexpr double KB_SI = 1.380649e-23;
 inline constexpr double H_SI = 6.62607015e-34;
 inline constexpr double AMU_KG = 1.66053906892e-27;
-inline constexpr double BAR_PA = 1.0e5;
+inline constexpr double ATM_PA = 101325.0;
 inline constexpr double PI = 3.141592653589793238462643383279502884;
 
 using Vec3 = std::array<double, 3>;

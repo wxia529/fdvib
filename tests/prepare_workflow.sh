@@ -55,6 +55,13 @@ grep -q '^1 1.000000000000000e-01 -2.000000000000000e-01 3.000000000000000e-01$'
   "$case_dir/fdvib/disp_0001_x_p/forces.dat"
 "$fdvib" run "$case_dir/fdvib.in" > "$case_dir/restart.out"
 grep -q '^Completed 0, preserved 6 existing jobs$' "$case_dir/restart.out"
+"$fdvib" analyze "$case_dir/fdvib.in" > "$case_dir/analyze.out"
+grep -q "asr='no'" "$case_dir/fdvib/results/dynmat.in"
+grep -q 'remove_interaction_blocks=.true.' "$case_dir/fdvib/results/dynmat.in"
+if grep -q 'filmol' "$case_dir/fdvib/results/dynmat.in"; then
+  echo "generated dynmat.in unexpectedly contains filmol" >&2
+  exit 1
+fi
 
 printf "unknown_parameter = 1\n" >> "$case_dir/fdvib.in"
 if "$fdvib" prepare "$case_dir/fdvib.in" > /dev/null 2> "$case_dir/error"; then

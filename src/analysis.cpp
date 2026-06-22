@@ -102,7 +102,7 @@ void analyze(const Settings &s) {
     write_dynG(dyn,q,h);
     std::ostringstream di;
     di << "&INPUT\n  fildyn='" << dyn.filename().string() << "',\n  filout='" << s.output_prefix << ".freq.out',\n"
-       << "  filmol=' ',\n  asr='" << (s.system_type=="gas"?"zero-dim":"no") << "',\n"
+       << "  asr='no',\n"
        << "  remove_interaction_blocks=" << (s.system_type=="gas"?".false.":".true.") << ",\n/\n";
     write_text(results/"dynmat.in",di.str());
     const auto root_thermo=s.root/"thermo.in";

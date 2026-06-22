@@ -41,7 +41,7 @@ VibThermo vibration_thermo(const std::vector<Mode>& modes,double T,const std::st
 
 std::vector<Mode> gas_vibrational_modes(const std::vector<Mode> &modes,
                                          const std::string &rotor_type,
-                                         double rigid_tolerance) {
+                                         double &largest_rigid) {
     const int rigid_dof = rotor_type == "atom" ? 3 : (rotor_type == "linear" ? 5 : 6);
     if (static_cast<int>(modes.size()) < rigid_dof)
         throw std::runtime_error("Not enough normal modes for gas RRHO rigid-body projection");
@@ -52,17 +52,10 @@ std::vector<Mode> gas_vibrational_modes(const std::vector<Mode> &modes,
         return std::abs(modes[a].freq) < std::abs(modes[b].freq);
     });
     std::vector<bool> rigid(modes.size(), false);
-    double largest_rigid = 0.0;
+    largest_rigid = 0.0;
     for (int i = 0; i < rigid_dof; ++i) {
         rigid[order[i]] = true;
         largest_rigid = std::max(largest_rigid, std::abs(modes[order[i]].freq));
-    }
-    if (largest_rigid > rigid_tolerance) {
-        std::ostringstream message;
-        message << "Expected " << rigid_dof << " rigid-body modes within "
-                << rigid_tolerance << " cm^-1, but the largest is "
-                << largest_rigid << " cm^-1";
-        throw std::runtime_error(message.str());
     }
 
     std::vector<Mode> vibrations;
@@ -83,24 +76,28 @@ std::vector<Mode> gas_vibrational_modes(const std::vector<Mode> &modes,
 void thermo(const fs::path &results) {
     if (!fs::is_directory(results)) throw std::runtime_error("Not a result directory: " + results.string());
     const auto c=Config::load(results/"thermo.in");
-    c.require_only({"model", "temperature_k", "pressure_bar", "symmetry_number",
+    c.require_only({"model", "temperature_k", "pressure_atm", "symmetry_number",
                     "electronic_degeneracy", "rotor_type", "low_frequency_model",
                     "frequency_floor_cm1", "zero_tolerance_cm1"}, "thermo.in");
     const std::string model=lower(c.get("model"));
     if(model!="gas_rrho"&&model!="local_harmonic") throw std::runtime_error("THERMO model must be gas_rrho or local_harmonic");
     if(model=="local_harmonic" &&
-       (c.has("pressure_bar") || c.has("symmetry_number") ||
+       (c.has("pressure_atm") || c.has("symmetry_number") ||
         c.has("electronic_degeneracy") || c.has("rotor_type")))
         throw std::runtime_error("local_harmonic must not contain gas-only thermochemistry parameters");
+    if(model=="gas_rrho"&&c.has("zero_tolerance_cm1"))
+        throw std::runtime_error("gas_rrho must not contain zero_tolerance_cm1; rigid-body modes are excluded by molecular degrees of freedom");
     if (fs::exists(results/"dynmat.in")) {
         const auto d=Config::load(results/"dynmat.in");
         const auto asr=lower(d.get("asr","no"));
         const auto remove=lower(d.get("remove_interaction_blocks",".false."));
         const bool removes_blocks=(remove==".true."||remove=="true"||remove=="t");
+        if(asr!="no")
+            throw std::runtime_error("Thermochemistry requires asr='no' in dynmat.in");
         if(model=="local_harmonic"&&!removes_blocks)
             throw std::runtime_error("local_harmonic requires remove_interaction_blocks=.true. in dynmat.in");
-        if(model=="gas_rrho"&&(removes_blocks||asr!="zero-dim"))
-            throw std::runtime_error("gas_rrho requires asr='zero-dim' and remove_interaction_blocks=.false. in dynmat.in");
+        if(model=="gas_rrho"&&removes_blocks)
+            throw std::runtime_error("gas_rrho requires remove_interaction_blocks=.false. in dynmat.in");
     }
     const double T=c.real("temperature_k",-1); if(T<=0) throw std::runtime_error("temperature_k must be > 0");
     const std::string low=lower(c.get("low_frequency_model","harmonic"));
@@ -131,16 +128,17 @@ void thermo(const fs::path &results) {
         if((type=="atom")!=(g.masses.size()==1)) throw std::runtime_error("rotor_type='atom' is valid only for a monatomic species");
         if(type=="nonlinear"&&g.masses.size()<3) throw std::runtime_error("A molecule with fewer than three atoms cannot be a nonlinear rotor");
     }
-    const auto thermo_modes=model=="gas_rrho"?gas_vibrational_modes(modes,type,zt):modes;
+    double largest_rigid=0.0;
+    const auto thermo_modes=model=="gas_rrho"?gas_vibrational_modes(modes,type,largest_rigid):modes;
     const auto vib=vibration_thermo(thermo_modes,T,low,floor,model=="gas_rrho"?0.0:zt);
     double hcorr=vib.u,stotal=vib.s,gcorr=vib.f,strans=0,srot=0,selec=0,htrans=0,urot=0;
     if(model=="gas_rrho"){
-        if(!c.has("pressure_bar")||!c.has("symmetry_number")) throw std::runtime_error("gas_rrho requires explicit pressure_bar and symmetry_number");
+        if(!c.has("pressure_atm")||!c.has("symmetry_number")) throw std::runtime_error("gas_rrho requires explicit pressure_atm and symmetry_number");
         const auto dataset=Config::load(results/"fdvib.in.reference");
         if(lower(dataset.get("system_type"))!="gas") throw std::runtime_error("gas_rrho requires a gas fdvib.in.reference");
-        const double pbar=c.real("pressure_bar",-1); const int sigma=c.integer("symmetry_number",0),mult=dataset.integer("multiplicity",0);
-        if(pbar<=0||sigma<=0||mult<=0) throw std::runtime_error("Gas pressure, symmetry, and multiplicity must be positive");
-        const double qtrans=std::pow(2*PI*(mtot*AMU_KG)*KB_SI*T/(H_SI*H_SI),1.5)*(KB_SI*T/(pbar*BAR_PA));
+        const double patm=c.real("pressure_atm",-1); const int sigma=c.integer("symmetry_number",0),mult=dataset.integer("multiplicity",0);
+        if(patm<=0||sigma<=0||mult<=0) throw std::runtime_error("Gas pressure, symmetry, and multiplicity must be positive");
+        const double qtrans=std::pow(2*PI*(mtot*AMU_KG)*KB_SI*T/(H_SI*H_SI),1.5)*(KB_SI*T/(patm*ATM_PA));
         strans=KB_EV*(std::log(qtrans)+2.5);htrans=2.5*KB_EV*T;
         if(type=="linear") {
             const double moment=std::max(I[1],I[2]); if(!(moment>0.0)) throw std::runtime_error("Invalid linear-molecule moment of inertia");
@@ -161,7 +159,7 @@ void thermo(const fs::path &results) {
     }
     std::ostringstream o;o<<"# FDVIB thermochemistry\n# model: "<<model<<"\n# low_frequency_model: "<<low<<"\n";
     if(low=="frequency_floor")o<<"# frequency_floor_cm1: "<<floor<<"\n";
-    if(model=="gas_rrho")o<<"# rotor_type: "<<type<<"\n# rigid_body_modes_excluded: "<<(type=="atom"?3:(type=="linear"?5:6))<<"\n# expected_vibrational_modes: "<<thermo_modes.size()<<"\n";
+    if(model=="gas_rrho")o<<"# rotor_type: "<<type<<"\n# rigid_body_modes_excluded: "<<(type=="atom"?3:(type=="linear"?5:6))<<"\n# max_rigid_body_frequency_cm1: "<<largest_rigid<<"\n# expected_vibrational_modes: "<<thermo_modes.size()<<"\n";
     o<<"# imaginary_modes_excluded: "<<vib.imag<<"\n# zero_modes_excluded: "<<vib.zero<<"\n# positive_modes_used: "<<vib.used<<"\n# modes_floored: "<<vib.floored<<"\n";
     o<<"# units: T=K energies=eV entropy=eV/K\n"<<std::fixed;
     if(model=="local_harmonic") {

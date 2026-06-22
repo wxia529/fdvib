@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-06-22
+
+### Changed
+
+- Use `asr='no'` for both local and gas calculations, and omit the unused
+  `filmol` setting from generated `dynmat.in` files.
+- Express gas pressure with `pressure_atm` and convert atmospheres to pascals
+  using `1 atm = 101325 Pa`.
+- Remove the absolute rigid-body frequency cutoff from gas RRHO calculations;
+  report the largest removed frequency as a diagnostic instead.
+
 ## [0.2.0] - 2026-06-22
 
 ### Changed
@@ -52,7 +63,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Tag-triggered Linux release packaging through GitHub Actions.
 - BSD 3-Clause licensing.
 
-[Unreleased]: https://github.com/wxia529/fdvib/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/wxia529/fdvib/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/wxia529/fdvib/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/wxia529/fdvib/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/wxia529/fdvib/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/wxia529/fdvib/releases/tag/v0.1.0

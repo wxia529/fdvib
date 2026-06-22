@@ -26,18 +26,17 @@ multiplicity = 1
 EOF
 
 cat > "$case_dir/dynmat.in" <<'EOF'
-asr = 'zero-dim'
+asr = 'no'
 remove_interaction_blocks = .false.
 EOF
 
 cat > "$case_dir/thermo.in" <<'EOF'
 model = 'gas_rrho'
 temperature_k = 298.15
-pressure_bar = 1.0
+pressure_atm = 1.0
 symmetry_number = 1
 rotor_type = 'nonlinear'
 low_frequency_model = 'harmonic'
-zero_tolerance_cm1 = 1.0
 EOF
 
 append_mode() {
@@ -60,6 +59,7 @@ append_mode 9 300.0
 "$fdvib" thermo "$case_dir" > /dev/null
 grep -q '^# rotor_type: nonlinear$' "$case_dir/thermo.dat"
 grep -q '^# rigid_body_modes_excluded: 6$' "$case_dir/thermo.dat"
+grep -q '^# max_rigid_body_frequency_cm1: 0.3$' "$case_dir/thermo.dat"
 grep -q '^# expected_vibrational_modes: 3$' "$case_dir/thermo.dat"
 grep -q '^# positive_modes_used: 3$' "$case_dir/thermo.dat"
 
@@ -83,7 +83,6 @@ temperature_k = 298.15
 low_frequency_model = 'harmonic'
 zero_tolerance_cm1 = 1.0
 EOF
-sed -i "s/asr = 'zero-dim'/asr = 'no'/" "$case_dir/dynmat.in"
 sed -i 's/remove_interaction_blocks = .false./remove_interaction_blocks = .true./' "$case_dir/dynmat.in"
 "$fdvib" thermo "$case_dir" > /dev/null
 grep -q '^# imaginary_modes_excluded: 1$' "$case_dir/thermo.dat"

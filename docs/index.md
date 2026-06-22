@@ -422,16 +422,16 @@ For local modes, the generated input is similar to:
 &INPUT
   fildyn='system.dynG',
   filout='system.freq.out',
-  filmol=' ',
   asr='no',
   remove_interaction_blocks=.true.,
 /
 ```
 
-Gas calculations instead use:
+Gas calculations also use `asr='no'`, but retain the complete molecular
+Hessian:
 
 ```fortran
-asr='zero-dim'
+asr='no'
 remove_interaction_blocks=.false.
 ```
 
@@ -495,18 +495,17 @@ Example `thermo.in` for a gas molecule:
 &THERMO
   model                    = 'gas_rrho',
   temperature_k            = 298.15,
-  pressure_bar             = 1.0,
+  pressure_atm             = 1.0,
   symmetry_number          = 1,
   electronic_degeneracy    = 'auto',
   rotor_type               = 'auto',
   low_frequency_model      = 'harmonic',
-  zero_tolerance_cm1       = 1.0,
 /
 ```
 
 Gas calculations require explicit values for:
 
-- `pressure_bar`, in bar;
+- `pressure_atm`, in atmospheres (`1 atm = 101325 Pa`);
 - `symmetry_number`, the rotational symmetry number.
 
 The spin multiplicity is defined once in `fdvib.in`. `analyze` copies the
@@ -545,12 +544,13 @@ the rigid-body modes closest to zero and requires exactly:
 - `3N-5` vibrational modes for a linear molecule;
 - `3N-6` vibrational modes for a nonlinear molecule.
 
-The removed three, five, or six modes must all lie within
-`zero_tolerance_cm1` of zero. This checks that the `zero-dim` acoustic sum rule
-produced the expected translational and rotational modes. Any non-positive
-frequency remaining in the vibrational set is a fatal error: optimize the
-geometry and repeat the frequency calculation before using gas RRHO
-thermochemistry.
+FDVIB reports the largest absolute frequency among the removed rigid-body
+modes as `max_rigid_body_frequency_cm1`. This is a diagnostic rather than a
+hard cutoff: a clear separation between the removed modes and the retained
+vibrations is more informative than a universal absolute threshold. Any
+non-positive frequency remaining in the vibrational set is a fatal error:
+optimize the geometry and repeat the frequency calculation before using gas
+RRHO thermochemistry.
 
 Rigid-body identification is frequency-based: FDVIB removes the required
 number of modes with the smallest absolute frequencies. It does not project
@@ -573,9 +573,9 @@ require `fdvib.in.reference`. The command writes `thermo.dat`.
 
 If `dynmat.in` is present, FDVIB also cross-checks the physical model:
 
+- both models require `asr='no'`;
 - `local_harmonic` requires `remove_interaction_blocks=.true.`;
-- `gas_rrho` requires `asr='zero-dim'` and
-  `remove_interaction_blocks=.false.`.
+- `gas_rrho` requires `remove_interaction_blocks=.false.`.
 
 This prevents a local-mode frequency file from being used accidentally as a
 gas-molecule calculation.
@@ -606,8 +606,9 @@ Machine-readable output uses only:
 Units such as kJ/mol and kcal/mol are not mixed into the same data table.
 
 Gas output additionally records `rotor_type`,
-`rigid_body_modes_excluded`, and `expected_vibrational_modes`, so the
-`3N-5` or `3N-6` selection can be audited directly.
+`rigid_body_modes_excluded`, `max_rigid_body_frequency_cm1`, and
+`expected_vibrational_modes`, so the `3N-5` or `3N-6` selection can be audited
+directly.
 
 ## Thermochemical quantities
 
@@ -735,10 +736,11 @@ Interpretation of an imaginary mode must distinguish a physical instability
 from insufficient geometry optimization or finite-difference noise.
 
 For `gas_rrho`, FDVIB first removes exactly three atomic translations, five
-linear-molecule rigid motions, or six nonlinear-molecule rigid motions. These
-must be within `zero_tolerance_cm1` of zero. A negative or zero frequency in
-the remaining `3N-5` or `3N-6` vibrational modes terminates the calculation;
-it is not silently omitted or replaced by its absolute value.
+linear-molecule rigid motions, or six nonlinear-molecule rigid motions. The
+gas model does not use `zero_tolerance_cm1`; it reports the largest removed
+absolute frequency for diagnosis. A negative or zero frequency in the
+remaining `3N-5` or `3N-6` vibrational modes terminates the calculation; it is
+not silently omitted or replaced by its absolute value.
 
 ## Recalculation at another temperature
 

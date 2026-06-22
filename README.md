@@ -67,7 +67,9 @@ and [`examples/gas`](examples/gas). Gas calculations require
 `selected_atoms='all'`, an explicit spin multiplicity, and consistent QE spin
 settings. Gas RRHO thermochemistry removes exactly five rigid-body modes for a
 linear molecule or six for a nonlinear molecule and rejects any imaginary
-frequency remaining in the true vibrational modes.
+frequency remaining in the true vibrational modes. Gas pressure is specified
+with `pressure_atm`, where `1 atm = 101325 Pa`; gas calculations do not use
+`zero_tolerance_cm1`.
 
 ## Workflow
 
@@ -90,7 +92,8 @@ fdvib thermo fdvib/results
 Cartesian coordinate. `run` executes the corresponding `pw.x` calculations.
 `analyze` forms and symmetrizes the finite-difference Hessian and writes the QE
 dynamical matrix and `dynmat.in`. Execution of `dynmat.x` remains an explicit
-QE post-processing step.
+QE post-processing step. Generated local and gas inputs both use `asr='no'`;
+rigid-body modes are excluded later according to molecular degrees of freedom.
 
 Existing QE output and Molden files are not overwritten. Dataset settings used
 by `analyze` are loaded from immutable snapshots created by `prepare`.
