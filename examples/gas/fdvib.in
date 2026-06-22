@@ -1,0 +1,11 @@
+&FDVIB
+  scf_input               = 'scf.in',
+  workdir                 = 'fdvib',
+  system_type             = 'gas',
+  selected_atoms          = 'all',
+  displacement_angstrom   = 0.01,
+  multiplicity            = 1,
+  pw_command              = './bin/pw.x',
+  mpi_command             = 'mpirun -np 8',
+  output_prefix           = 'molecule',
+/

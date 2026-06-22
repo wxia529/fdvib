@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.12)
+project(fdvib VERSION 0.1.0 LANGUAGES CXX)
+
+add_executable(fdvib src/main.cpp)
+target_compile_features(fdvib PRIVATE cxx_std_17)
+target_compile_options(fdvib PRIVATE -Wall -Wextra -Wpedantic)
+target_compile_definitions(fdvib PRIVATE FDVIB_VERSION="${PROJECT_VERSION}")
+install(TARGETS fdvib RUNTIME DESTINATION bin)

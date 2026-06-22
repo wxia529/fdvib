@@ -1,0 +1,10 @@
+&THERMO
+  model                    = 'gas_rrho',
+  temperature_k            = 298.15,
+  pressure_bar             = 1.0,
+  symmetry_number          = 1,
+  electronic_degeneracy    = 'auto',
+  rotor_type               = 'auto',
+  low_frequency_model      = 'harmonic',
+  zero_tolerance_cm1       = 1.0,
+/

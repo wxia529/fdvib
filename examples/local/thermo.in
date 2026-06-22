@@ -1,0 +1,7 @@
+&THERMO
+  model                  = 'local_harmonic',
+  temperature_k          = 298.15,
+  low_frequency_model    = 'frequency_floor',
+  frequency_floor_cm1    = 50.0,
+  zero_tolerance_cm1     = 1.0,
+/
