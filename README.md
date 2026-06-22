@@ -65,7 +65,9 @@ The QE input must use `ibrav=0`, `ATOMIC_POSITIONS angstrom`, and
 Configuration templates are available in [`examples/local`](examples/local)
 and [`examples/gas`](examples/gas). Gas calculations require
 `selected_atoms='all'`, an explicit spin multiplicity, and consistent QE spin
-settings.
+settings. Gas RRHO thermochemistry removes exactly five rigid-body modes for a
+linear molecule or six for a nonlinear molecule and rejects any imaginary
+frequency remaining in the true vibrational modes.
 
 ## Workflow
 

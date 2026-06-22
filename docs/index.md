@@ -188,7 +188,7 @@ functional groups. Example `fdvib.in`:
   system_type             = 'local',
   selected_atoms          = 65, 66, 67,
   displacement_angstrom   = 0.01,
-  pw_command              = './bin/pw.x',
+  pw_command              = 'pw.x',
   mpi_command             = 'mpirun -np 8',
   output_prefix           = 'system',
 /
@@ -229,7 +229,7 @@ All atoms must be active for a gas molecule:
   selected_atoms          = 'all',
   displacement_angstrom   = 0.01,
   multiplicity            = 2,
-  pw_command              = './bin/pw.x',
+  pw_command              = 'pw.x',
   mpi_command             = 'mpirun -np 8',
   output_prefix           = 'molecule',
 /
@@ -538,6 +538,27 @@ electronic_degeneracy = 4
 `auto` is appropriate unless a nearly linear geometry makes automatic
 classification unstable.
 
+The rotor type also fixes the vibrational degrees of freedom. FDVIB removes
+the rigid-body modes closest to zero and requires exactly:
+
+- `0` vibrational modes for an atom;
+- `3N-5` vibrational modes for a linear molecule;
+- `3N-6` vibrational modes for a nonlinear molecule.
+
+The removed three, five, or six modes must all lie within
+`zero_tolerance_cm1` of zero. This checks that the `zero-dim` acoustic sum rule
+produced the expected translational and rotational modes. Any non-positive
+frequency remaining in the vibrational set is a fatal error: optimize the
+geometry and repeat the frequency calculation before using gas RRHO
+thermochemistry.
+
+Rigid-body identification is frequency-based: FDVIB removes the required
+number of modes with the smallest absolute frequencies. It does not project
+the eigenvectors onto an explicit translational/rotational subspace. If a true
+very soft vibration lies closer to zero than a residual rigid-body mode, the
+classification can be ambiguous. Inspect the normal modes and improve force
+convergence when the low-frequency ordering is uncertain.
+
 ## `thermo` command
 
 Run:
@@ -583,6 +604,10 @@ Machine-readable output uses only:
 - entropy: eV/K.
 
 Units such as kJ/mol and kcal/mol are not mixed into the same data table.
+
+Gas output additionally records `rotor_type`,
+`rigid_body_modes_excluded`, and `expected_vibrational_modes`, so the
+`3N-5` or `3N-6` selection can be audited directly.
 
 ## Thermochemical quantities
 
@@ -643,6 +668,17 @@ S_\mathrm{trans}+S_\mathrm{rot}+S_\mathrm{vib}+S_\mathrm{elec}
 \right).
 $$
 
+Here `H_trans = 3/2 k_BT + PV = 5/2 k_BT` for one ideal-gas molecule, so this
+is equivalently
+
+$$
+G_\mathrm{corr}=E_\mathrm{ZPE}+\Delta U(0\rightarrow T)+PV-TS.
+$$
+
+Add `G_corr` to the electronic energy calculated at the same theoretical
+level to obtain the ideal-gas Gibbs energy at the requested temperature and
+pressure. FDVIB does not combine those two values automatically.
+
 ## Low-frequency models
 
 FDVIB supports two models.
@@ -654,7 +690,7 @@ low_frequency_model = 'harmonic'
 ```
 
 Every positive frequency is used without modification. This is the default in
-the gas example.
+the gas example and is mandatory for `gas_rrho`.
 
 ### frequency_floor
 
@@ -670,12 +706,13 @@ $$
 $$
 
 The substituted frequency is used consistently for ZPE, `U_vib`, `S_vib`,
-and free energy. The local example uses a `50 cm^-1` floor.
+and free energy. The local example uses a `50 cm^-1` floor. This model is
+rejected for gas RRHO calculations; molecular translation and rotation are
+removed using the rigid-body degree count instead.
 
 ## Imaginary and zero modes
 
-FDVIB never terminates thermochemistry merely because imaginary modes exist.
-The fixed rules are:
+For `local_harmonic`, the fixed rules are:
 
 - if `abs(frequency) < zero_tolerance_cm1`, classify and exclude it as zero;
 - if the frequency is negative, report and exclude it as imaginary;
@@ -696,6 +733,12 @@ modes_floored
 
 Interpretation of an imaginary mode must distinguish a physical instability
 from insufficient geometry optimization or finite-difference noise.
+
+For `gas_rrho`, FDVIB first removes exactly three atomic translations, five
+linear-molecule rigid motions, or six nonlinear-molecule rigid motions. These
+must be within `zero_tolerance_cm1` of zero. A negative or zero frequency in
+the remaining `3N-5` or `3N-6` vibrational modes terminates the calculation;
+it is not silently omitted or replaced by its absolute value.
 
 ## Recalculation at another temperature
 
