@@ -1,0 +1,55 @@
+name: Release Linux package
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Build
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --parallel
+
+      - name: Package
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version="${GITHUB_REF_NAME#v}"
+          reported_version="$(./build/fdvib --version)"
+          if [[ "$reported_version" != "fdvib $version" ]]; then
+            echo "Tag $GITHUB_REF_NAME does not match $reported_version" >&2
+            exit 1
+          fi
+
+          package="fdvib-${version}-linux-x86_64"
+          cmake --install build --prefix "dist/$package"
+          tar -C dist -czf "dist/$package.tar.gz" "$package"
+          (cd dist && sha256sum "$package.tar.gz" > "$package.tar.gz.sha256")
+
+          echo "archive=dist/$package.tar.gz" >> "$GITHUB_OUTPUT"
+          echo "checksum=dist/$package.tar.gz.sha256" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "${{ steps.package.outputs.archive }}" \
+            "${{ steps.package.outputs.checksum }}" \
+            --verify-tag \
+            --generate-notes \
+            --title "FDVIB ${{ steps.package.outputs.version }}"

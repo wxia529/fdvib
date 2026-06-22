@@ -35,6 +35,17 @@ The executable is written to `build/fdvib`. To install it:
 cmake --install build --prefix "$HOME/.local"
 ```
 
+## Linux releases
+
+Version tags produce a prebuilt Linux x86_64 archive on the GitHub Releases
+page. The archive contains the executable, reference documentation, license,
+and configuration examples. Quantum ESPRESSO is not bundled.
+
+```sh
+tar -xzf fdvib-X.Y.Z-linux-x86_64.tar.gz
+install fdvib-X.Y.Z-linux-x86_64/bin/fdvib "$HOME/.local/bin/fdvib"
+```
+
 ## Input
 
 A calculation directory contains:
