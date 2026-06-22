@@ -85,6 +85,11 @@ cmake --install build --prefix "$HOME/.local"
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
+Tagged releases include a prebuilt Linux x86_64 package targeting glibc 2.17
+or newer. `libstdc++` and `libgcc` are linked statically, so the package is
+compatible with CentOS/RHEL 7 and most newer glibc distributions. Quantum
+ESPRESSO executables are not included.
+
 Verify the installation:
 
 ```bash

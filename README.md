@@ -38,12 +38,14 @@ cmake --install build --prefix "$HOME/.local"
 ## Linux releases
 
 Version tags produce a prebuilt Linux x86_64 archive on the GitHub Releases
-page. The archive contains the executable, reference documentation, license,
+page. The binary targets glibc 2.17 or newer and statically links `libstdc++`
+and `libgcc`; it is therefore suitable for CentOS/RHEL 7 and most newer glibc
+distributions. The archive also contains the reference documentation, license,
 and configuration examples. Quantum ESPRESSO is not bundled.
 
 ```sh
-tar -xzf fdvib-X.Y.Z-linux-x86_64.tar.gz
-install fdvib-X.Y.Z-linux-x86_64/bin/fdvib "$HOME/.local/bin/fdvib"
+tar -xzf fdvib-X.Y.Z-linux-x86_64-glibc-2.17.tar.gz
+install fdvib-X.Y.Z-linux-x86_64-glibc-2.17/bin/fdvib "$HOME/.local/bin/fdvib"
 ```
 
 ## Input
@@ -110,6 +112,7 @@ The output prefix may differ from `system` according to `fdvib.in`.
 
 See the [FDVIB reference](docs/index.md) for configuration fields, physical
 models, output definitions, restart behavior, and diagnostics.
+Release history is recorded in the [changelog](CHANGELOG.md).
 
 ## License
 
