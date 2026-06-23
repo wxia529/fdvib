@@ -464,7 +464,7 @@ Unlike QE's default Molden output, the compact FDVIB file:
 - preserves the sign of imaginary frequencies;
 - contains the complete geometry;
 - writes zero displacement for frozen atoms;
-- is suitable for Molden, Avogadro, and Chemcraft.
+- is suitable for Molden and Jmol.
 
 This step is optional. It is not required for thermochemistry.
 
