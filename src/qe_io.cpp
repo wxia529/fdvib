@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <iomanip>
 #include <numeric>
 #include <regex>
@@ -113,8 +114,22 @@ std::vector<std::string> attempt_lines(const QEInput &q, const std::string &outd
         } else {
             std::smatch match;
             if (std::regex_search(line, match, pseudo_re)) {
-                fs::path value(match[2].str());
-                if (!value.is_absolute()) {
+                const auto original = match[2].str();
+                fs::path value(original);
+                const bool home_relative = original == "~" || original.rfind("~/", 0) == 0 ||
+                                           original == "$HOME" || original.rfind("$HOME/", 0) == 0 ||
+                                           original == "${HOME}" || original.rfind("${HOME}/", 0) == 0;
+                if (home_relative) {
+                    const char *home = std::getenv("HOME");
+                    if (!home || !*home)
+                        throw std::runtime_error("pseudo_dir uses the home directory but HOME is not set");
+                    std::string suffix;
+                    if (original.rfind("~/", 0) == 0) suffix = original.substr(2);
+                    else if (original.rfind("$HOME/", 0) == 0) suffix = original.substr(6);
+                    else if (original.rfind("${HOME}/", 0) == 0) suffix = original.substr(8);
+                    value = (fs::path(home) / suffix).lexically_normal();
+                } else if (!value.is_absolute() && !original.empty() &&
+                           original.front() != '~' && original.front() != '$') {
                     const auto target = (source_dir / value).lexically_normal();
                     value = target.lexically_relative(run_dir.lexically_normal());
                     if (value.empty()) value = ".";

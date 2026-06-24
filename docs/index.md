@@ -204,7 +204,8 @@ reference density again.
 
 Every generated `scf.in` or `pw.in` uses `outdir='./out'`, and FDVIB starts QE
 inside that input's calculation directory. Relative `pseudo_dir` values are
-rewritten relative to that directory, while an explicit `wfcdir` is redirected to
+rewritten relative to that directory; `~`, `$HOME`, and `${HOME}` forms are
+expanded to an absolute home-directory path. An explicit `wfcdir` is redirected to
 the same isolated `./out`. Consequently, users can enter a calculation directory
 and run its input directly with `pw.x -inp pw.in` for diagnosis without editing
 paths. A completed directory is an immutable snapshot: copy it before manual

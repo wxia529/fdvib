@@ -11,7 +11,7 @@ cat > "$case_dir/scf.in" <<'EOF'
   tprnfor = .true.
   prefix = 'seedtest'
   outdir = './out'
-  pseudo_dir = './pseudo'
+  pseudo_dir = '~/pseudo'
   disk_io = 'high'
 /
 &SYSTEM
@@ -102,7 +102,8 @@ grep -q '^Completed 6, preserved 0 displacement jobs$' "$case_dir/run.out"
 grep -q "dynmat.x was not requested" "$case_dir/run.out"
 test "$(find "$case_dir/fdvib/calculations" -maxdepth 2 -name pw.in | wc -l)" -eq 6
 test "$(grep -Ril "outdir[[:space:]]*=[[:space:]]*'./out'" "$case_dir/fdvib/calculations" --include='*.in' | wc -l)" -eq 7
-grep -q "pseudo_dir = '../../../pseudo'" "$case_dir/fdvib/calculations/disp_0001_x_p_001/pw.in"
+grep -q "pseudo_dir = '$HOME/pseudo'" "$case_dir/fdvib/calculations/init_scf_001/scf.in"
+grep -q "pseudo_dir = '$HOME/pseudo'" "$case_dir/fdvib/calculations/disp_0001_x_p_001/pw.in"
 test "$(grep -Ril "startingpot[[:space:]]*=[[:space:]]*'file'" "$case_dir/fdvib/calculations" --include=pw.in | wc -l)" -eq 6
 test "$(grep -Ril "disk_io[[:space:]]*=[[:space:]]*'nowf'" "$case_dir/fdvib/calculations" --include=pw.in | wc -l)" -eq 6
 grep -q "disk_io = 'high'" "$case_dir/fdvib/calculations/init_scf_001/scf.in"
@@ -121,8 +122,10 @@ mkdir "$case_dir/no-disk-io"
 cp "$case_dir/scf.in" "$case_dir/no-disk-io/scf.in"
 cp "$case_dir/fdvib.in" "$case_dir/no-disk-io/fdvib.in"
 sed -i '/disk_io/d' "$case_dir/no-disk-io/scf.in"
+sed -i 's|~/pseudo|./pseudo|' "$case_dir/no-disk-io/scf.in"
 "$fdvib" -inp "$case_dir/no-disk-io/fdvib.in" > "$case_dir/no-disk-io/run.out"
 test "$(grep -Ril "disk_io[[:space:]]*=[[:space:]]*'nowf'" "$case_dir/no-disk-io/fdvib/calculations" --include=pw.in | wc -l)" -eq 6
+grep -q "pseudo_dir = '../../../pseudo'" "$case_dir/no-disk-io/fdvib/calculations/disp_0001_x_p_001/pw.in"
 if grep -qi 'disk_io' "$case_dir/no-disk-io/fdvib/calculations/init_scf_001/scf.in"; then
   echo "Initial SCF unexpectedly received disk_io" >&2
   exit 1
