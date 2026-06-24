@@ -118,8 +118,20 @@ The output prefix may differ from `system` according to `fdvib.in`.
 
 See the [FDVIB reference](docs/index.md) for configuration fields, physical
 models, output definitions, restart behavior, and diagnostics.
-The exact Shermo 2.6.2 text contract is documented in the
-[SHM compatibility specification](SHM_COMPATIBILITY_SPEC_ZH.md).
+
+**Thermochemistry post-processing**: Shermo is the recommended tool for
+comprehensive molecular thermochemistry analysis. FDVIB's `shm` command
+exports results in Shermo's native format so you can take advantage of its
+automated point-group detection, full RRHO treatment, and detailed reporting.
+
+> If Shermo is utilized in your work, the following paper must be cited:
+> Tian Lu, Qinxue Chen, *Shermo: A general code for calculating molecular
+> thermodynamic properties*, Comput. Theor. Chem., 1200, 113249 (2021)
+> DOI: [10.1016/j.comptc.2021.113249](https://doi.org/10.1016/j.comptc.2021.113249)
+
+FDVIB's built-in `thermo` command is a lightweight alternative for quick checks
+and automated workflows.
+
 Release history is recorded in the [changelog](CHANGELOG.md).
 
 ## License

@@ -267,65 +267,34 @@ The command reads `<prefix>.dynG` and `<prefix>.freq.out`, then writes a compact
 geometry, writes zero displacement for frozen atoms, and omits modes within
 the internal `1e-6 cm^-1` zero tolerance.
 
-## Thermochemistry
+## Shermo `.shm` export (recommended)
 
-Thermochemistry is deliberately separate from the expensive calculation:
-
-```bash
-fdvib thermo fdvib/results -in thermo.in
-```
-
-Local harmonic example:
-
-```fortran
-&THERMO
-  model                  = 'local_harmonic',
-  temperature_k          = 298.15,
-  low_frequency_model    = 'frequency_floor',
-  frequency_floor_cm1    = 50.0,
-  zero_tolerance_cm1     = 1.0,
-/
-```
-
-Gas RRHO example:
-
-```fortran
-&THERMO
-  model                    = 'gas_rrho',
-  temperature_k            = 298.15,
-  pressure_atm             = 1.0,
-  symmetry_number          = 1,
-  electronic_degeneracy    = 'auto',
-  rotor_type               = 'auto',
-  low_frequency_model      = 'harmonic',
-/
-```
-
-Local analysis reports vibrational ZPE, internal energy, entropy, and free
-energy. Gas RRHO additionally includes translation, rotation, and electronic
-degeneracy. It removes three rigid modes for an atom, five for a linear
-molecule, or six for a nonlinear molecule, then rejects any remaining
-non-positive vibrational frequency. Results are written to
-`fdvib/results/thermo.dat`.
-
-Changing temperature or other thermochemistry settings requires only another
-`fdvib thermo` command; it never reruns the electronic-structure calculation.
-
-## Shermo `.shm` export
-
+**Shermo is the recommended thermochemistry post-processor for FDVIB results.**
 After `dynmat.x` has produced a valid frequency file, run:
 
 ```bash
 fdvib shm fdvib/results
 ```
 
-The command writes `<prefix>.shm` with exactly the four sections expected by
+The `.shm` export produces an input file for `Shermo`, a mature and
+comprehensive code for calculating molecular thermochemistry properties
+(see [sobereva.com/soft/shermo](http://sobereva.com/soft/shermo)).
+Shermo provides automated point-group detection, full RRHO with Grimme's
+interpolation, and detailed per-mode contributions—features that are
+deliberately kept out of FDVIB's lightweight built-in thermo analysis.
+
+> **If Shermo is utilized in your work, the following paper must be cited:**
+>
+> Tian Lu, Qinxue Chen, *Shermo: A general code for calculating molecular
+> thermodynamic properties*, Comput. Theor. Chem., 1200, 113249 (2021)
+> DOI: [10.1016/j.comptc.2021.113249](https://doi.org/10.1016/j.comptc.2021.113249)
+
+The command writes `<prefix>.shm` with the four sections expected by
 Shermo 2.6.2: electronic energy, wavenumbers, atoms, and electronic levels.
 The electronic energy is the unperturbed reference SCF energy in Hartree;
 coordinates are written in Angstrom, masses in amu, and the ground-state
 electronic degeneracy is the configured multiplicity.
-See the [Shermo 2.6.2 SHM compatibility specification](../SHM_COMPATIBILITY_SPEC_ZH.md)
-for the exact text grammar and parser constraints.
+
 QE species labels such as `C1` or `O_ads` are reduced to their leading
 standard element symbol; labels that cannot be mapped to H--Og are rejected.
 The exporter requires `asr='no'` and cross-checks
@@ -368,3 +337,49 @@ Shermo fdvib/results/molecule.shm
 
 Export is transactional: FDVIB validates the generated text before renaming
 it to `.shm` and refuses to overwrite an existing file.
+
+## Built-in thermochemistry
+
+FDVIB includes a lightweight built-in thermo analysis for quick checks and
+automated workflows. For production-quality results with automated point-group
+detection and Grimme's interpolation, prefer the Shermo `.shm` export above.
+
+```bash
+fdvib thermo fdvib/results -in thermo.in
+```
+
+Local harmonic example:
+
+```fortran
+&THERMO
+  model                  = 'local_harmonic',
+  temperature_k          = 298.15,
+  low_frequency_model    = 'frequency_floor',
+  frequency_floor_cm1    = 50.0,
+  zero_tolerance_cm1     = 1.0,
+/
+```
+
+Gas RRHO example:
+
+```fortran
+&THERMO
+  model                    = 'gas_rrho',
+  temperature_k            = 298.15,
+  pressure_atm             = 1.0,
+  symmetry_number          = 1,
+  electronic_degeneracy    = 'auto',
+  rotor_type               = 'auto',
+  low_frequency_model      = 'harmonic',
+/
+```
+
+Local analysis reports vibrational ZPE, internal energy, entropy, and free
+energy. Gas RRHO additionally includes translation, rotation, and electronic
+degeneracy. It removes three rigid modes for an atom, five for a linear
+molecule, or six for a nonlinear molecule, then rejects any remaining
+non-positive vibrational frequency. Results are written to
+`fdvib/results/thermo.dat`.
+
+Changing temperature or other thermochemistry settings requires only another
+`fdvib thermo` command; it never reruns the electronic-structure calculation.
