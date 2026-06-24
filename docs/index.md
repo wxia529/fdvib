@@ -4,14 +4,14 @@ FDVIB is a finite-difference vibration controller for Quantum ESPRESSO. A
 calculation runs from one command and can be resumed safely:
 
 ```bash
-fdvib -in fdvib.in
+fdvib -inp fdvib.in
 ```
 
 Normal-mode visualization and thermochemistry remain separate analyses:
 
 ```bash
 fdvib modes fdvib/results
-fdvib thermo fdvib/results -in thermo.in
+fdvib thermo fdvib/results -inp thermo.in
 fdvib shm fdvib/results
 ```
 
@@ -90,10 +90,15 @@ reference SCF uses the starting-potential policy from `scf.in` (normally QE's
 default atomic superposition). FDVIB injects `startingpot='file'` only into
 the generated displaced inputs.
 
-Every displaced attempt has an independent QE `outdir`. Before execution,
+Every displaced calculation has an independent QE `outdir`. Before execution,
 FDVIB copies the reference `charge-density.dat` or `charge-density.hdf5` into
-that attempt's `<qe-prefix>.save` directory. Tasks never share a writable QE
+that calculation's `<qe-prefix>.save` directory. The former is produced by QE builds
+without HDF5 support; FDVIB discovers and snapshots either representation
+automatically. Tasks never share a writable QE
 scratch directory.
+FDVIB also inserts or replaces `disk_io='nowf'` in displaced inputs to avoid
+storing wavefunction files that are not needed for finite-difference forces.
+The initial SCF retains the user's `disk_io` policy.
 
 The original `scf.in` should be tested independently. Tight electronic
 convergence is important because force noise directly affects frequencies.
@@ -153,43 +158,62 @@ For gas calculations, the QE spin settings must agree with multiplicity. A
 non-singlet requires `nspin=2` and
 `tot_magnetization=multiplicity-1`.
 
-## Reference SCF and displacement attempts
+## Initial SCF and displacement calculations
 
-The reference stage is stored under:
+All external calculation runs use one flat directory level:
 
 ```text
-fdvib/reference/
-|-- attempt-001/
+fdvib/calculations/
+|-- init_scf_001/
 |   |-- scf.in
 |   |-- scf.out
-|   `-- out/<qe-prefix>.save/charge-density.*
-`-- complete.state
+|   `-- out/<qe-prefix>.save/
+|       |-- charge-density.*
+|       `-- paw.txt                 # present for PAW calculations
+|-- disp_0065_x_p_001/
+|   |-- pw.in
+|   |-- pw.out
+|   |-- forces.dat
+|   `-- out/<qe-prefix>.save/
+|       |-- charge-density.*
+|       `-- paw.txt                 # copied for PAW calculations
+`-- disp_0065_x_m_001/
 ```
 
-A reference attempt is committed only after FDVIB verifies the process exit
+`init_scf` is the SCF at the input geometry. A displacement name records the
+one-based QE atom index, Cartesian direction, and positive (`p`) or negative
+(`m`) displacement. The final three digits are the execution number; a failed
+run is retained and the retry receives `_002`. Completion snapshots such as
+`state/init_scf.complete` and `state/disp_0065_x_p.complete` identify the
+accepted calculation directory and record its data digests.
+
+The initial SCF is committed only after FDVIB verifies the process exit
 status, `JOB DONE`, SCF convergence, the complete force block, and a nonempty
-charge-density file. FDVIB reads the last `! total energy = ... Ry` record from
+charge-density file. When QE produces `paw.txt`, FDVIB includes its presence
+and digest in the completion snapshot and verifies both files on restart.
+FDVIB reads the last `! total energy = ... Ry` record from
 the unperturbed reference SCF, divides it by two to convert Rydberg to Hartree,
 and stores the pure reference value in `electronic_structure.dat`. It does not
 use a displaced energy or add ZPE. For calculations using electronic smearing,
 the QE total energy can contain a smearing contribution; isolated-molecule
 inputs should avoid artificial electronic-temperature contributions.
 
-Each displacement uses append-only attempts:
-
-```text
-fdvib/jobs/disp_0065_x_p/
-|-- attempt-001/
-|   |-- pw.in
-|   |-- pw.out
-|   `-- out/<qe-prefix>.save/charge-density.*
-|-- forces.dat
-`-- complete.state
-```
-
-A failed or interrupted attempt remains available for diagnosis. The next
-calculation invocation creates a fresh attempt and seeds it from the immutable
+A failed or interrupted calculation remains available for diagnosis. The next
+calculation invocation creates a fresh numbered directory and seeds it from the immutable
 reference density again.
+
+Every generated `scf.in` or `pw.in` uses `outdir='./out'`, and FDVIB starts QE
+inside that input's calculation directory. Relative `pseudo_dir` values are
+rewritten relative to that directory, while an explicit `wfcdir` is redirected to
+the same isolated `./out`. Consequently, users can enter a calculation directory
+and run its input directly with `pw.x -inp pw.in` for diagnosis without editing
+paths. A completed directory is an immutable snapshot: copy it before manual
+experiments. FDVIB may directly recover a valid manually completed,
+not-yet-committed directory on the next invocation.
+
+Because `pw_command` is executed from the calculation directory, executables and
+auxiliary files named in that command must either be discoverable through the
+environment (for example `pw.x` on `PATH`) or use absolute paths.
 
 FDVIB validates the total-force block, ignoring later decomposed force blocks
 printed by some QE features. A successful task requires exactly `nat` total
@@ -228,7 +252,7 @@ fdvib/results/<prefix>.freq.out
 ```
 
 With `run_dynmat=.false.`, calculation stops after `dynG` and `dynmat.in`.
-Changing only this setting to `.true.` and repeating `fdvib -in fdvib.in`
+Changing only this setting to `.true.` and repeating `fdvib -inp fdvib.in`
 skips reference, displacement, and Hessian stages and runs only `dynmat.x`.
 
 ## State and recovery
@@ -343,7 +367,7 @@ it to `.shm` and refuses to overwrite an existing file.
 FDVIB includes a built-in thermo analysis for quick checks.
 
 ```bash
-fdvib thermo fdvib/results -in thermo.in
+fdvib thermo fdvib/results -inp thermo.in
 ```
 
 Local harmonic example:

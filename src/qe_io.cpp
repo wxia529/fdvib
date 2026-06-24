@@ -96,22 +96,64 @@ std::string format_position(const Atom &a) {
     return o.str();
 }
 
-std::string displaced_input(const QEInput &q, int atom, int axis, double shift,
-                            const std::string &outdir) {
+std::vector<std::string> attempt_lines(const QEInput &q, const std::string &outdir,
+                                       const fs::path &source_dir, const fs::path &run_dir) {
     auto lines = q.lines;
-    auto a = q.atoms.at(atom);
-    a.r[axis] += shift;
-    lines[q.pos_start + atom] = format_position(a);
     bool found = false;
-    std::regex ore(R"(^\s*outdir\s*=)", std::regex::icase);
-    for (auto &l : lines) {
-        if (std::regex_search(l, ore)) {
-            const auto indent = l.substr(0, l.find_first_not_of(" \t"));
-            l = indent + "outdir = '" + outdir + "',\n";
+    const std::regex outdir_re(R"(^\s*outdir\s*=)", std::regex::icase);
+    const std::regex wfcdir_re(R"(^\s*wfcdir\s*=)", std::regex::icase);
+    const std::regex pseudo_re(R"(^\s*pseudo_dir\s*=\s*(['\"])([^'\"]+)['\"])", std::regex::icase);
+    for (auto &line : lines) {
+        const auto indent = line.substr(0, line.find_first_not_of(" \t"));
+        if (std::regex_search(line, outdir_re)) {
+            line = indent + "outdir = '" + outdir + "',\n";
             found = true;
+        } else if (std::regex_search(line, wfcdir_re)) {
+            line = indent + "wfcdir = '" + outdir + "',\n";
+        } else {
+            std::smatch match;
+            if (std::regex_search(line, match, pseudo_re)) {
+                fs::path value(match[2].str());
+                if (!value.is_absolute()) {
+                    const auto target = (source_dir / value).lexically_normal();
+                    value = target.lexically_relative(run_dir.lexically_normal());
+                    if (value.empty()) value = ".";
+                }
+                line = indent + "pseudo_dir = '" + value.generic_string() + "',\n";
+            }
         }
     }
     if (!found) throw std::runtime_error("Cannot find outdir in scf.in");
+    return lines;
+}
+
+std::string displaced_input(const QEInput &q, int atom, int axis, double shift,
+                            const std::string &outdir, const fs::path &source_dir,
+                            const fs::path &run_dir) {
+    auto lines = attempt_lines(q, outdir, source_dir, run_dir);
+    auto a = q.atoms.at(atom);
+    a.r[axis] += shift;
+    lines[q.pos_start + atom] = format_position(a);
+    bool disk_io_found = false;
+    const std::regex disk_io_re(R"(^\s*disk_io\s*=)", std::regex::icase);
+    for (auto &line : lines) if (std::regex_search(line, disk_io_re)) {
+        const auto indent = line.substr(0, line.find_first_not_of(" \t"));
+        line = indent + "disk_io = 'nowf',\n";
+        disk_io_found = true;
+    }
+    if (!disk_io_found) {
+        int control = -1;
+        for (int i = 0; i < static_cast<int>(lines.size()); ++i)
+            if (std::regex_search(trim(lines[i]), std::regex(R"(^&CONTROL\b)", std::regex::icase))) {
+                control = i;
+                break;
+            }
+        if (control < 0) throw std::runtime_error("Cannot find &CONTROL in scf.in");
+        int end = control + 1;
+        while (end < static_cast<int>(lines.size()) && trim(strip_comment(lines[end])) != "/") ++end;
+        if (end == static_cast<int>(lines.size())) throw std::runtime_error("Unterminated &CONTROL namelist");
+        lines.insert(lines.begin() + end, "  disk_io = 'nowf',\n");
+    }
     bool startingpot_found = false;
     std::regex spre(R"(^\s*startingpot\s*=)", std::regex::icase);
     for (auto &l : lines) if (std::regex_search(l, spre)) {
@@ -142,16 +184,9 @@ std::string displaced_input(const QEInput &q, int atom, int axis, double shift,
     return std::accumulate(lines.begin(), lines.end(), std::string{});
 }
 
-std::string reference_input(const QEInput &q, const std::string &outdir) {
-    auto lines = q.lines;
-    bool found = false;
-    const std::regex ore(R"(^\s*outdir\s*=)", std::regex::icase);
-    for (auto &l : lines) if (std::regex_search(l, ore)) {
-        const auto indent = l.substr(0, l.find_first_not_of(" \t"));
-        l = indent + "outdir = '" + outdir + "',\n";
-        found = true;
-    }
-    if (!found) throw std::runtime_error("Cannot find outdir in scf.in");
+std::string reference_input(const QEInput &q, const std::string &outdir,
+                            const fs::path &source_dir, const fs::path &run_dir) {
+    const auto lines = attempt_lines(q, outdir, source_dir, run_dir);
     return std::accumulate(lines.begin(), lines.end(), std::string{});
 }
 

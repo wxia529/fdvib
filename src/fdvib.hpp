@@ -61,9 +61,11 @@ struct QEInput {
 
 QEInput parse_qe_input(const fs::path &p);
 std::string format_position(const Atom &a);
-std::string reference_input(const QEInput &q, const std::string &outdir);
+std::string reference_input(const QEInput &q, const std::string &outdir,
+                            const fs::path &source_dir, const fs::path &run_dir);
 std::string displaced_input(const QEInput &q, int atom, int axis, double shift,
-                            const std::string &outdir);
+                            const std::string &outdir, const fs::path &source_dir,
+                            const fs::path &run_dir);
 
 struct Settings {
     fs::path config_path, root, scf_input, workdir;

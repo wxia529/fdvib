@@ -18,8 +18,8 @@ Example:
 ```bash
 cp examples/local/fdvib.in .
 cp examples/local/thermo.in .
-fdvib -in fdvib.in
+fdvib -inp fdvib.in
 fdvib modes fdvib/results
-fdvib thermo fdvib/results -in thermo.in
+fdvib thermo fdvib/results -inp thermo.in
 fdvib shm fdvib/results
 ```

@@ -67,6 +67,16 @@ std::vector<Mode> parse_modes(const fs::path &p, int nat) {
 void write_compact_molden(const fs::path &p, const DynGeometry &g,
                           const std::vector<Mode> &modes, double zero_tol);
 
+fs::path completed_forces(const Settings &s, const std::string &id) {
+    const auto marker = s.workdir / "state" / (id + ".complete");
+    std::istringstream in(read_text(marker));
+    std::string calculation, digest, extra;
+    if (!(in >> calculation >> digest) || in >> extra ||
+        calculation.rfind(id + '_', 0) != 0 || fs::path(calculation).filename() != calculation)
+        throw std::runtime_error("Invalid displacement completion snapshot: " + marker.string());
+    return s.workdir / "calculations" / calculation / "forces.dat";
+}
+
 void analyze(const Settings &s) {
     const auto q = parse_qe_input(s.workdir / "scf.in.reference");
     auto selected = s.selected;
@@ -75,8 +85,8 @@ void analyze(const Settings &s) {
     std::vector<double> h(n3*n3, 0.0);
     const double delta_bohr = s.displacement / BOHR_TO_ANG;
     for (int atom1 : selected) for (int axis = 0; axis < 3; ++axis) {
-        const auto p = read_forces(s.workdir/"jobs"/job_name(atom1,axis,1)/"forces.dat", q.nat);
-        const auto m = read_forces(s.workdir/"jobs"/job_name(atom1,axis,-1)/"forces.dat", q.nat);
+        const auto p = read_forces(completed_forces(s, job_name(atom1,axis,1)), q.nat);
+        const auto m = read_forces(completed_forces(s, job_name(atom1,axis,-1)), q.nat);
         const int col = 3*(atom1-1)+axis;
         for (int atomj1 : selected) for (int beta=0; beta<3; ++beta) {
             const int row=3*(atomj1-1)+beta;

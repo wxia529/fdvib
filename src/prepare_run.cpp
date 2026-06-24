@@ -2,8 +2,10 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <cctype>
 #include <cmath>
 #include <cstdio>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <numeric>
@@ -128,30 +130,54 @@ std::vector<Vec3> read_forces(const fs::path &p, int nat) {
 namespace {
 
 std::string file_digest(const fs::path &p) {
-    const auto data = read_text(p);
+    std::ifstream input(p, std::ios::binary);
+    if (!input) throw std::runtime_error("Cannot read " + p.string());
     std::uint64_t hash = 1469598103934665603ULL;
-    for (const unsigned char c : data) {
-        hash ^= c;
-        hash *= 1099511628211ULL;
+    std::array<char, 65536> buffer{};
+    while (input) {
+        input.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+        const auto count = input.gcount();
+        for (std::streamsize i = 0; i < count; ++i) {
+            hash ^= static_cast<unsigned char>(buffer[static_cast<std::size_t>(i)]);
+            hash *= 1099511628211ULL;
+        }
     }
+    if (!input.eof()) throw std::runtime_error("Failed while reading " + p.string());
     std::ostringstream out;
     out << std::hex << std::setfill('0') << std::setw(16) << hash;
     return out.str();
 }
 
-std::string attempt_name(int n) {
+std::string numbered_name(const std::string &task, int n) {
     std::ostringstream out;
-    out << "attempt-" << std::setfill('0') << std::setw(3) << n;
+    out << task << '_' << std::setfill('0') << std::setw(3) << n;
     return out.str();
 }
 
-fs::path new_attempt(const fs::path &parent) {
+fs::path new_numbered_directory(const fs::path &parent, const std::string &task) {
     fs::create_directories(parent);
     int n = 1;
-    while (fs::exists(parent / attempt_name(n))) ++n;
-    const auto path = parent / attempt_name(n);
+    while (fs::exists(parent / numbered_name(task, n))) ++n;
+    const auto path = parent / numbered_name(task, n);
     fs::create_directories(path);
     return path;
+}
+
+bool is_numbered_name(const std::string &name, const std::string &task) {
+    const auto prefix = task + '_';
+    if (name.rfind(prefix, 0) != 0 || name.size() < prefix.size() + 3) return false;
+    return std::all_of(name.begin() + static_cast<std::ptrdiff_t>(prefix.size()), name.end(),
+                       [](unsigned char c) { return std::isdigit(c) != 0; });
+}
+
+std::vector<fs::path> numbered_directories(const fs::path &parent, const std::string &task) {
+    std::vector<fs::path> found;
+    if (!fs::is_directory(parent)) return found;
+    for (const auto &entry : fs::directory_iterator(parent))
+        if (entry.is_directory() && is_numbered_name(entry.path().filename().string(), task))
+            found.push_back(entry.path());
+    std::sort(found.rbegin(), found.rend());
+    return found;
 }
 
 void validate_pw_output(const fs::path &output) {
@@ -217,7 +243,7 @@ std::vector<int> selected_atoms(const Settings &s, int nat) {
 std::string dataset_description(const Settings &s, const QEInput &q,
                                 const std::vector<int> &selected) {
     std::ostringstream out;
-    out << "format=1\n"
+    out << "format=2\n"
         << "scf_digest=" << file_digest(s.scf_input) << '\n'
         << "system_type=" << s.system_type << '\n'
         << "displacement_angstrom=" << std::setprecision(17) << s.displacement << '\n'
@@ -259,56 +285,92 @@ void initialize_dataset(const Settings &s, const QEInput &q,
         throw std::runtime_error("FDVIB dataset snapshot is missing or modified: " + config_reference.string());
 }
 
-fs::path ensure_reference(const Settings &s, const QEInput &q) {
-    const auto parent = s.workdir / "reference";
-    const auto marker = parent / "complete.state";
+struct ReferenceSeed {
+    fs::path density;
+    fs::path paw;
+    std::string density_digest;
+    std::string paw_digest;
+};
+
+ReferenceSeed ensure_reference(const Settings &s, const QEInput &q) {
+    const auto calculations = s.workdir / "calculations";
+    const auto marker = s.workdir / "state" / "init_scf.complete";
     if (fs::exists(marker)) {
         std::istringstream in(read_text(marker));
-        std::string attempt_name_saved, density_name, digest;
-        in >> attempt_name_saved >> density_name >> digest;
-        const auto attempt = parent / attempt_name_saved;
+        std::string attempt_name_saved, density_name, density_digest, paw_name, paw_digest, extra;
+        if (!(in >> attempt_name_saved >> density_name >> density_digest >> paw_name >> paw_digest) || in >> extra ||
+            !is_numbered_name(attempt_name_saved, "init_scf"))
+            throw std::runtime_error("Invalid reference completion snapshot: " + marker.string());
+        const auto attempt = calculations / attempt_name_saved;
         const auto density = attempt / "out" / (q.prefix + ".save") / density_name;
+        const auto paw = density.parent_path() / "paw.txt";
         validate_pw_output(attempt / "scf.out");
-        if (!fs::is_regular_file(density) || file_digest(density) != digest)
+        if (!fs::is_regular_file(density) || file_digest(density) != density_digest)
             throw std::runtime_error("Completed reference charge density is missing or modified: " + density.string());
+        if (paw_name == "-") {
+            if (paw_digest != "-" || fs::exists(paw))
+                throw std::runtime_error("Completed reference PAW snapshot is inconsistent: " + paw.string());
+        } else if (paw_name != "paw.txt" || !fs::is_regular_file(paw) || fs::file_size(paw) == 0 ||
+                   file_digest(paw) != paw_digest) {
+            throw std::runtime_error("Completed reference PAW data is missing or modified: " + paw.string());
+        }
         const auto electronic = s.workdir / "electronic_structure.dat";
         const auto wanted_electronic = electronic_structure_text(s, attempt / "scf.out");
         if (!fs::is_regular_file(electronic) || read_text(electronic) != wanted_electronic)
             throw std::runtime_error("Reference electronic-structure metadata is missing or modified: " + electronic.string());
         std::cout << "Preserved completed reference SCF\n";
-        return density;
+        return {density, paw_name == "paw.txt" ? paw : fs::path{}, density_digest,
+                paw_name == "paw.txt" ? paw_digest : std::string{}};
     }
-    const auto attempt = new_attempt(parent);
+    const auto commit = [&](const fs::path &calculation, bool recovered) {
+        const auto output = calculation / "scf.out";
+        validate_pw_output(output);
+        (void)parse_forces(output, q.nat);
+        const auto density = density_file(calculation, q.prefix);
+        const auto paw = density.parent_path() / "paw.txt";
+        if (fs::exists(paw) && (!fs::is_regular_file(paw) || fs::file_size(paw) == 0))
+            throw std::runtime_error("Reference PAW data is not a non-empty regular file: " + paw.string());
+        write_text(s.workdir / "electronic_structure.dat", electronic_structure_text(s, output));
+        const bool has_paw = fs::is_regular_file(paw);
+        const auto density_digest = file_digest(density);
+        const auto paw_digest = has_paw ? file_digest(paw) : std::string{};
+        write_text(marker, calculation.filename().string() + " " + density.filename().string() + " " +
+                           density_digest + " " + (has_paw ? "paw.txt " + paw_digest : "- -") + "\n");
+        if (recovered) std::cout << "Recovered completed initial SCF from " << calculation.filename().string() << '\n';
+        return ReferenceSeed{density, has_paw ? paw : fs::path{}, density_digest, paw_digest};
+    };
+    for (const auto &calculation : numbered_directories(calculations, "init_scf")) {
+        try {
+            return commit(calculation, true);
+        } catch (const std::exception &) {
+            // Retain incomplete calculations and try a fresh numbered directory below.
+        }
+    }
+    const auto attempt = new_numbered_directory(calculations, "init_scf");
     const auto input = attempt / "scf.in";
-    const auto output = attempt / "scf.out";
-    const auto relout = fs::relative(attempt / "out", s.root).generic_string();
-    write_text(input, reference_input(q, "./" + relout));
-    const auto cmd = s.pw_command + " -in " + shell_quote(fs::relative(input, s.root).string());
+    write_text(input, reference_input(q, "./out", s.root, attempt));
+    const auto cmd = s.pw_command + " -inp scf.in";
     std::cout << "Running unperturbed reference SCF\n";
-    const int rc = shell_run(cmd, s.root, fs::relative(output, s.root));
+    const int rc = shell_run(cmd, attempt, "scf.out");
     if (rc != 0) throw std::runtime_error("Reference SCF failed with exit code " + std::to_string(rc));
-    validate_pw_output(output);
-    (void)parse_forces(output, q.nat);
-    const auto density = density_file(attempt, q.prefix);
-    write_text(s.workdir / "electronic_structure.dat", electronic_structure_text(s, output));
-    write_text(marker, attempt.filename().string() + " " + density.filename().string() + " " + file_digest(density) + "\n");
-    return density;
+    return commit(attempt, false);
 }
 
 void run_displacements(const Settings &s, const QEInput &q,
-                       const std::vector<int> &selected, const fs::path &reference_density) {
+                       const std::vector<int> &selected, const ReferenceSeed &reference) {
     int completed = 0, preserved = 0;
-    const auto jobs = s.workdir / "jobs";
+    const auto calculations = s.workdir / "calculations";
     for (const int atom1 : selected) for (int axis = 0; axis < 3; ++axis) for (const int sign : {1, -1}) {
         const auto id = job_name(atom1, axis, sign);
-        const auto parent = jobs / id;
-        const auto marker = parent / "complete.state";
-        const auto forces = parent / "forces.dat";
+        const auto marker = s.workdir / "state" / (id + ".complete");
         if (fs::exists(marker)) {
             std::istringstream in(read_text(marker));
-            std::string saved_attempt, digest;
-            in >> saved_attempt >> digest;
-            const auto output = parent / saved_attempt / "pw.out";
+            std::string saved_attempt, digest, extra;
+            if (!(in >> saved_attempt >> digest) || in >> extra || !is_numbered_name(saved_attempt, id))
+                throw std::runtime_error("Invalid displacement completion snapshot: " + marker.string());
+            const auto attempt = calculations / saved_attempt;
+            const auto output = attempt / "pw.out";
+            const auto forces = attempt / "forces.dat";
             const auto parsed = parse_forces(output, q.nat);
             if (!fs::is_regular_file(forces) || file_digest(forces) != digest)
                 throw std::runtime_error("Completed force data is missing or modified: " + forces.string());
@@ -316,26 +378,48 @@ void run_displacements(const Settings &s, const QEInput &q,
             ++preserved;
             continue;
         }
-        const auto attempt = new_attempt(parent);
+        const auto commit = [&](const fs::path &calculation, bool recovered) {
+            const auto output = calculation / "pw.out";
+            const auto forces = calculation / "forces.dat";
+            const auto parsed = parse_forces(output, q.nat);
+            write_forces(forces, parsed, output);
+            write_text(marker, calculation.filename().string() + " " + file_digest(forces) + "\n");
+            if (recovered) std::cout << "Recovered completed " << id << " from " << calculation.filename().string() << '\n';
+        };
+        bool recovered = false;
+        for (const auto &calculation : numbered_directories(calculations, id)) {
+            try {
+                commit(calculation, true);
+                recovered = true;
+                break;
+            } catch (const std::exception &) {
+                // Retain incomplete calculations and try a fresh numbered directory below.
+            }
+        }
+        if (recovered) {
+            ++completed;
+            continue;
+        }
+        const auto attempt = new_numbered_directory(calculations, id);
         const auto input = attempt / "pw.in";
-        const auto output = attempt / "pw.out";
-        const auto relout = fs::relative(attempt / "out", s.root).generic_string();
-        write_text(input, displaced_input(q, atom1 - 1, axis, sign * s.displacement, "./" + relout));
-        const auto seeded = attempt / "out" / (q.prefix + ".save") / reference_density.filename();
+        write_text(input, displaced_input(q, atom1 - 1, axis, sign * s.displacement,
+                                          "./out", s.root, attempt));
+        const auto seeded = attempt / "out" / (q.prefix + ".save") / reference.density.filename();
         fs::create_directories(seeded.parent_path());
-        fs::copy_file(reference_density, seeded);
-        if (file_digest(seeded) != file_digest(reference_density))
+        fs::copy_file(reference.density, seeded);
+        if (file_digest(seeded) != reference.density_digest)
             throw std::runtime_error("Copied reference charge density failed verification: " + seeded.string());
-        const auto paw_src = reference_density.parent_path() / "paw.txt";
-        if (fs::is_regular_file(paw_src))
-            fs::copy_file(paw_src, seeded.parent_path() / "paw.txt");
-        const auto cmd = s.pw_command + " -in " + shell_quote(fs::relative(input, s.root).string());
+        if (!reference.paw.empty()) {
+            const auto seeded_paw = seeded.parent_path() / "paw.txt";
+            fs::copy_file(reference.paw, seeded_paw);
+            if (file_digest(seeded_paw) != reference.paw_digest)
+                throw std::runtime_error("Copied reference PAW data failed verification: " + seeded_paw.string());
+        }
+        const auto cmd = s.pw_command + " -inp pw.in";
         std::cout << "Running " << id << std::endl;
-        const int rc = shell_run(cmd, s.root, fs::relative(output, s.root));
+        const int rc = shell_run(cmd, attempt, "pw.out");
         if (rc != 0) throw std::runtime_error(id + " failed with exit code " + std::to_string(rc));
-        const auto parsed = parse_forces(output, q.nat);
-        write_forces(forces, parsed, output);
-        write_text(marker, attempt.filename().string() + " " + file_digest(forces) + "\n");
+        commit(attempt, false);
         ++completed;
     }
     std::cout << "Completed " << completed << ", preserved " << preserved << " displacement jobs\n";
@@ -383,10 +467,7 @@ void ensure_analysis(const Settings &s) {
         }
         if (recovered) return;
         const auto failed_root = s.workdir / "failed";
-        fs::create_directories(failed_root);
-        int n = 1;
-        fs::path failed;
-        do { failed = failed_root / ("analysis-" + attempt_name(n++)); } while (fs::exists(failed));
+        const auto failed = new_numbered_directory(failed_root, "analysis");
         fs::rename(results, failed);
         std::cout << "Preserved incomplete Hessian results in " << failed << '\n';
     }
@@ -405,44 +486,87 @@ void ensure_dynmat(const Settings &s) {
     const auto final_output = results / "dynmat.out";
     const auto final_freq = results / (s.output_prefix + ".freq.out");
     const auto dyn = results / (s.output_prefix + ".dynG");
+    const auto calculations = s.workdir / "calculations";
     const auto validate_modes = [&] {
         const auto geometry = read_dyn_geometry(dyn);
         (void)parse_modes(final_freq, static_cast<int>(geometry.masses.size()));
     };
+    const auto validate_calculation = [&](const fs::path &calculation) {
+        const auto calculation_dyn = calculation / dyn.filename();
+        const auto calculation_input = calculation / "dynmat.in";
+        const auto calculation_output = calculation / "dynmat.out";
+        const auto calculation_freq = calculation / final_freq.filename();
+        if (!fs::is_regular_file(calculation_dyn) || !fs::is_regular_file(calculation_input) ||
+            file_digest(calculation_dyn) != file_digest(dyn) ||
+            file_digest(calculation_input) != file_digest(results / "dynmat.in"))
+            throw std::runtime_error("dynmat calculation inputs differ from Hessian results: " + calculation.string());
+        validate_pw_output(calculation_output);
+        if (!fs::is_regular_file(calculation_freq) || fs::file_size(calculation_freq) == 0)
+            throw std::runtime_error("dynmat calculation frequency output is missing: " + calculation_freq.string());
+        const auto geometry = read_dyn_geometry(calculation_dyn);
+        (void)parse_modes(calculation_freq, static_cast<int>(geometry.masses.size()));
+    };
     if (fs::exists(state_marker)) {
+        std::istringstream in(read_text(state_marker));
+        std::string calculation_name, output_digest, freq_digest, extra;
+        if (!(in >> calculation_name >> output_digest >> freq_digest) || in >> extra ||
+            !is_numbered_name(calculation_name, "dynmat"))
+            throw std::runtime_error("Invalid dynmat completion snapshot: " + state_marker.string());
+        const auto calculation = calculations / calculation_name;
+        validate_calculation(calculation);
         validate_pw_output(final_output);
         if (!fs::is_regular_file(final_freq)) throw std::runtime_error("Completed dynmat frequency output is missing");
-        std::istringstream in(read_text(state_marker));
-        std::string output_digest, freq_digest;
-        in >> output_digest >> freq_digest;
         if (file_digest(final_output) != output_digest || file_digest(final_freq) != freq_digest)
             throw std::runtime_error("Completed dynmat results were modified");
+        if (file_digest(calculation / "dynmat.out") != output_digest ||
+            file_digest(calculation / final_freq.filename()) != freq_digest)
+            throw std::runtime_error("Completed dynmat calculation was modified: " + calculation.string());
         validate_modes();
         std::cout << "Preserved completed dynmat.x result\n";
         return;
     }
     if (fs::exists(final_output) || fs::exists(final_freq)) {
         if (fs::is_regular_file(final_output) && fs::is_regular_file(final_freq)) {
-            try {
-                validate_pw_output(final_output);
-                validate_modes();
-                write_text(state_marker, file_digest(final_output) + " " + file_digest(final_freq) + "\n");
-                std::cout << "Recovered completed dynmat.x result\n";
-                return;
-            } catch (const std::exception &) {
-                // Preserve the uncommitted files below and create a new attempt.
+            for (const auto &calculation : numbered_directories(calculations, "dynmat")) {
+                try {
+                    validate_pw_output(final_output);
+                    validate_modes();
+                    validate_calculation(calculation);
+                    if (file_digest(final_output) != file_digest(calculation / "dynmat.out") ||
+                        file_digest(final_freq) != file_digest(calculation / final_freq.filename()))
+                        continue;
+                    write_text(state_marker, calculation.filename().string() + " " +
+                               file_digest(final_output) + " " + file_digest(final_freq) + "\n");
+                    std::cout << "Recovered completed dynmat.x result from " << calculation.filename().string() << '\n';
+                    return;
+                } catch (const std::exception &) {
+                    // Try another retained dynmat calculation.
+                }
             }
         }
-        const auto failed = new_attempt(s.workdir / "failed" / "dynmat-publish");
+        const auto failed = new_numbered_directory(s.workdir / "failed", "dynmat_publish");
         if (fs::exists(final_output)) fs::rename(final_output, failed / final_output.filename());
         if (fs::exists(final_freq)) fs::rename(final_freq, failed / final_freq.filename());
         std::cout << "Preserved incomplete dynmat results in " << failed << '\n';
     }
-    const auto attempt = new_attempt(s.workdir / "dynmat");
+    for (const auto &calculation : numbered_directories(calculations, "dynmat")) {
+        try {
+            validate_calculation(calculation);
+            fs::copy_file(calculation / "dynmat.out", final_output);
+            fs::copy_file(calculation / final_freq.filename(), final_freq);
+            write_text(state_marker, calculation.filename().string() + " " +
+                       file_digest(final_output) + " " + file_digest(final_freq) + "\n");
+            std::cout << "Recovered completed dynmat.x calculation from " << calculation.filename().string() << '\n';
+            return;
+        } catch (const std::exception &) {
+            // Retain incomplete calculations and create a fresh directory below.
+        }
+    }
+    const auto attempt = new_numbered_directory(calculations, "dynmat");
     fs::copy_file(results / (s.output_prefix + ".dynG"), attempt / (s.output_prefix + ".dynG"));
     fs::copy_file(results / "dynmat.in", attempt / "dynmat.in");
     std::cout << "Running dynmat.x\n";
-    const int rc = shell_run(s.dynmat_command + " -in dynmat.in", attempt, "dynmat.out");
+    const int rc = shell_run(s.dynmat_command + " -inp dynmat.in", attempt, "dynmat.out");
     if (rc != 0) throw std::runtime_error("dynmat.x failed with exit code " + std::to_string(rc));
     validate_pw_output(attempt / "dynmat.out");
     const auto freq = attempt / (s.output_prefix + ".freq.out");
@@ -454,7 +578,8 @@ void ensure_dynmat(const Settings &s) {
         throw std::runtime_error("Refuse to overwrite existing dynmat result");
     fs::copy_file(attempt / "dynmat.out", final_output);
     fs::copy_file(freq, final_freq);
-    write_text(state_marker, file_digest(final_output) + " " + file_digest(final_freq) + "\n");
+    write_text(state_marker, attempt.filename().string() + " " +
+               file_digest(final_output) + " " + file_digest(final_freq) + "\n");
 }
 
 } // namespace
@@ -481,8 +606,8 @@ void calculate(const Settings &s) {
         }
     }
     initialize_dataset(s, q, selected);
-    const auto density = ensure_reference(s, q);
-    run_displacements(s, q, selected, density);
+    const auto reference = ensure_reference(s, q);
+    run_displacements(s, q, selected, reference);
     ensure_analysis(s);
     ensure_dynmat(s);
 }

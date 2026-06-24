@@ -70,7 +70,7 @@ grep -qx '100.0000000000' "$case_dir/shm-frequencies"
 grep -qx '200.0000000000' "$case_dir/shm-frequencies"
 grep -qx '300.0000000000' "$case_dir/shm-frequencies"
 
-"$fdvib" thermo "$case_dir" -in "$case_dir/thermo.in" > /dev/null
+"$fdvib" thermo "$case_dir" -inp "$case_dir/thermo.in" > /dev/null
 grep -q '^# rotor_type: nonlinear$' "$case_dir/thermo.dat"
 grep -q '^# rigid_body_modes_excluded: 6$' "$case_dir/thermo.dat"
 grep -q '^# max_rigid_body_frequency_cm1: 0.3$' "$case_dir/thermo.dat"
@@ -78,14 +78,14 @@ grep -q '^# expected_vibrational_modes: 3$' "$case_dir/thermo.dat"
 grep -q '^# positive_modes_used: 3$' "$case_dir/thermo.dat"
 
 sed -i "s/rotor_type = 'nonlinear'/rotor_type = 'linear'/" "$case_dir/thermo.in"
-"$fdvib" thermo "$case_dir" -in "$case_dir/thermo.in" > /dev/null
+"$fdvib" thermo "$case_dir" -inp "$case_dir/thermo.in" > /dev/null
 grep -q '^# rigid_body_modes_excluded: 5$' "$case_dir/thermo.dat"
 grep -q '^# expected_vibrational_modes: 4$' "$case_dir/thermo.dat"
 grep -q '^# positive_modes_used: 4$' "$case_dir/thermo.dat"
 
 sed -i "s/rotor_type = 'linear'/rotor_type = 'nonlinear'/" "$case_dir/thermo.in"
 sed -i 's/= 300.0 \[cm-1\]/= -300.0 [cm-1]/' "$case_dir/molecule.freq.out"
-if "$fdvib" thermo "$case_dir" -in "$case_dir/thermo.in" > /dev/null 2> "$case_dir/error"; then
+if "$fdvib" thermo "$case_dir" -inp "$case_dir/thermo.in" > /dev/null 2> "$case_dir/error"; then
   echo "gas RRHO unexpectedly accepted an imaginary vibrational mode" >&2
   exit 1
 fi
@@ -98,7 +98,7 @@ low_frequency_model = 'harmonic'
 zero_tolerance_cm1 = 1.0
 EOF
 sed -i 's/remove_interaction_blocks = .false./remove_interaction_blocks = .true./' "$case_dir/dynmat.in"
-"$fdvib" thermo "$case_dir" -in "$case_dir/thermo.in" > /dev/null
+"$fdvib" thermo "$case_dir" -inp "$case_dir/thermo.in" > /dev/null
 grep -q '^# imaginary_modes_excluded: 1$' "$case_dir/thermo.dat"
 grep -q '^# zero_modes_excluded: 6$' "$case_dir/thermo.dat"
 grep -q '^# positive_modes_used: 2$' "$case_dir/thermo.dat"

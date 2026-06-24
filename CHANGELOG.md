@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-06-24
+
+### Fixed
+
+- Include optional reference `paw.txt` data in completion snapshots and verify
+  each copy used to seed a displaced PAW calculation.
+- Run QE inside each numbered calculation directory with `outdir='./out'`,
+  allowing a generated `scf.in` or `pw.in` to be rerun there without path
+  editing.
+- Recover validated, manually completed initial SCF, displacement, and
+  `dynmat.x` calculations when their completion state was not yet committed.
+
+### Changed
+
+- Flatten external execution directories under `calculations/`, using names
+  such as `init_scf_001`, `disp_0001_x_m_001`, and `dynmat_001`.
+- Advance the dataset-state format so calculations using the previous nested
+  layout are rejected explicitly instead of being mixed with the new layout.
+- Force `disk_io='nowf'` in displaced QE inputs to reduce scratch-space use,
+  while leaving the initial SCF policy unchanged.
+- Use the QE-style `-inp` input option for FDVIB calculation and thermo
+  commands and for FDVIB-launched `pw.x` and `dynmat.x` processes.
+- Stream charge-density digest calculation and reuse the verified reference
+  digest, avoiding whole-file memory use and repeated source-file hashing.
+
 ## [0.3.1] - 2026-06-24
 
 ### Fixed
@@ -120,7 +145,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Tag-triggered Linux release packaging through GitHub Actions.
 - BSD 3-Clause licensing.
 
-[Unreleased]: https://github.com/wxia529/fdvib/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/wxia529/fdvib/compare/v0.3.2...HEAD
+[0.3.2]: https://github.com/wxia529/fdvib/compare/v0.3.1...v0.3.2
+[0.3.1]: https://github.com/wxia529/fdvib/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/wxia529/fdvib/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/wxia529/fdvib/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/wxia529/fdvib/compare/v0.2.0...v0.2.1

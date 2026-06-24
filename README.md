@@ -63,7 +63,8 @@ The QE input must use `ibrav=0`, `ATOMIC_POSITIONS angstrom`, and
 `CELL_PARAMETERS angstrom`. It must also define `calculation='scf'`,
 `tprnfor=.true.`, and an `outdir`. Do not set `startingpot='file'`: FDVIB
 runs one unperturbed reference SCF and seeds every displaced calculation from
-its converged charge density.
+its converged charge density. Both non-HDF5 QE `charge-density.dat` and HDF5
+`charge-density.hdf5` outputs are supported.
 
 Configuration templates are available in [`examples/local`](examples/local)
 and [`examples/gas`](examples/gas). Gas calculations require
@@ -79,9 +80,9 @@ with `pressure_atm`, where `1 atm = 101325 Pa`; gas calculations do not use
 From the calculation directory:
 
 ```sh
-fdvib -in fdvib.in
+fdvib -inp fdvib.in
 fdvib modes fdvib/results
-fdvib thermo fdvib/results -in thermo.in
+fdvib thermo fdvib/results -inp thermo.in
 fdvib shm fdvib/results
 ```
 
@@ -89,6 +90,16 @@ The calculation command runs or resumes the reference SCF, all positive and
 negative displacement SCFs, Hessian assembly, and optional `dynmat.x`
 execution. Set `run_dynmat=.true.` or `.false.` in `fdvib.in`. Each displaced
 SCF uses its own QE `outdir` and an FDVIB-injected `startingpot='file'`.
+Displaced inputs also use `disk_io='nowf'` to avoid retaining unnecessary
+wavefunction files.
+Generated inputs use a calculation-local `outdir='./out'`. Runs are stored in
+one flat directory level, for example `calculations/init_scf_001` and
+`calculations/disp_0001_x_m_001`. An incomplete directory can be rerun there with
+`pw.x -inp pw.in` (or `pw.x -inp scf.in` for the reference).
+Completed directories are immutable snapshots and should be copied before
+manual experiments.
+Commands normally use `pw.x` from `PATH`; any file paths embedded in
+`pw_command` should be absolute because the command runs inside that directory.
 Generated local and gas inputs both use `asr='no'`; rigid-body modes are
 excluded later according to molecular degrees of freedom.
 
