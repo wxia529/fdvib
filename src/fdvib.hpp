@@ -51,6 +51,7 @@ struct Atom { std::string symbol; Vec3 r{}; std::vector<std::string> extra; int 
 
 struct QEInput {
     std::string text, clean_text;
+    std::string prefix{"pwscf"};
     std::vector<std::string> lines;
     int nat{}, ntyp{}, pos_header{}, pos_start{}, cell_header{};
     std::vector<Species> species;
@@ -60,16 +61,17 @@ struct QEInput {
 
 QEInput parse_qe_input(const fs::path &p);
 std::string format_position(const Atom &a);
+std::string reference_input(const QEInput &q, const std::string &outdir);
 std::string displaced_input(const QEInput &q, int atom, int axis, double shift,
                             const std::string &outdir);
 
 struct Settings {
     fs::path config_path, root, scf_input, workdir;
-    std::string system_type, pw_command, mpi_command, output_prefix;
+    std::string system_type, pw_command, dynmat_command, output_prefix;
     std::vector<int> selected;
     double displacement{};
     int multiplicity{};
-    bool multiplicity_explicit{}, selected_all{};
+    bool multiplicity_explicit{}, selected_all{}, run_dynmat{};
 };
 
 Settings settings(const fs::path &config_path, const fs::path &root_override = {});
@@ -86,10 +88,10 @@ std::vector<Mode> parse_modes(const fs::path &p, int nat);
 DynGeometry read_dyn_geometry(const fs::path &p);
 std::vector<Vec3> read_forces(const fs::path &p, int nat);
 
-void prepare(const Settings &s, bool force);
-void run_jobs(const Settings &s);
 void analyze(const Settings &s);
+void calculate(const Settings &s);
 void modes(const fs::path &results);
-void thermo(const fs::path &results);
+void thermo(const fs::path &results, const fs::path &thermo_input);
+void shm(const fs::path &results);
 
 } // namespace fdvib

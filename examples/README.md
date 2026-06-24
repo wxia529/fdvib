@@ -2,7 +2,9 @@
 
 The examples are configuration templates. Copy the appropriate `fdvib.in`
 and `thermo.in` into the directory containing a validated QE `scf.in`, then
-set atom indices, executable paths, MPI settings, and molecular metadata.
+set atom indices, executable commands, and molecular metadata. `scf.in` must
+not set `startingpot='file'`; FDVIB runs an unperturbed reference SCF and
+manages the seeded charge densities itself.
 
 - `local/`: frozen-environment local vibrations. The thermochemistry example
   uses a 50 `cm^-1` frequency floor.
@@ -16,4 +18,8 @@ Example:
 ```bash
 cp examples/local/fdvib.in .
 cp examples/local/thermo.in .
+fdvib -in fdvib.in
+fdvib modes fdvib/results
+fdvib thermo fdvib/results -in thermo.in
+fdvib shm fdvib/results
 ```

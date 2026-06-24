@@ -75,8 +75,8 @@ void analyze(const Settings &s) {
     std::vector<double> h(n3*n3, 0.0);
     const double delta_bohr = s.displacement / BOHR_TO_ANG;
     for (int atom1 : selected) for (int axis = 0; axis < 3; ++axis) {
-        const auto p = read_forces(s.workdir/job_name(atom1,axis,1)/"forces.dat", q.nat);
-        const auto m = read_forces(s.workdir/job_name(atom1,axis,-1)/"forces.dat", q.nat);
+        const auto p = read_forces(s.workdir/"jobs"/job_name(atom1,axis,1)/"forces.dat", q.nat);
+        const auto m = read_forces(s.workdir/"jobs"/job_name(atom1,axis,-1)/"forces.dat", q.nat);
         const int col = 3*(atom1-1)+axis;
         for (int atomj1 : selected) for (int beta=0; beta<3; ++beta) {
             const int row=3*(atomj1-1)+beta;
@@ -90,26 +90,25 @@ void analyze(const Settings &s) {
     }
     const auto results=s.workdir/"results"; fs::create_directories(results);
     const auto dyn=results/(s.output_prefix+".dynG");
-    for (const auto &p : {dyn, results/"dynmat.in"})
+    for (const auto &p : {dyn, results/"dynmat.in", results/"electronic_structure.dat"})
         if (fs::exists(p)) throw std::runtime_error("Refuse to overwrite " + p.string());
+    const auto dataset_config = s.workdir / "fdvib.in.reference";
     const auto result_config = results / "fdvib.in.reference";
     if (fs::exists(result_config)) {
-        if (read_text(result_config) != read_text(s.config_path))
+        if (read_text(result_config) != read_text(dataset_config))
             throw std::runtime_error("Result configuration snapshot differs: " + result_config.string());
     } else {
-        fs::copy_file(s.config_path, result_config);
+        fs::copy_file(dataset_config, result_config);
     }
+    fs::copy_file(s.workdir / "electronic_structure.dat", results / "electronic_structure.dat");
     write_dynG(dyn,q,h);
     std::ostringstream di;
     di << "&INPUT\n  fildyn='" << dyn.filename().string() << "',\n  filout='" << s.output_prefix << ".freq.out',\n"
        << "  asr='no',\n"
        << "  remove_interaction_blocks=" << (s.system_type=="gas"?".false.":".true.") << ",\n/\n";
     write_text(results/"dynmat.in",di.str());
-    const auto root_thermo=s.root/"thermo.in";
-    if(fs::exists(root_thermo)&&!fs::exists(results/"thermo.in")) fs::copy_file(root_thermo,results/"thermo.in");
     std::cout << "Hessian max asymmetry: " << std::scientific << asym << " Ry/Bohr^2\n"
-              << "Wrote " << dyn << " and " << (results/"dynmat.in") << "\n"
-              << "Next, run in the result directory:\n  dynmat.x -in dynmat.in > dynmat.out\n";
+              << "Wrote " << dyn << " and " << (results/"dynmat.in") << "\n";
 }
 
 DynGeometry read_dyn_geometry(const fs::path &p) {

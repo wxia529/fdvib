@@ -3,7 +3,7 @@
 FDVIB is a C++17 finite-difference vibration controller for
 [Quantum ESPRESSO](https://www.quantum-espresso.org/). It generates Cartesian
 displacements, runs `pw.x`, constructs a Gamma-point dynamical matrix from
-central force differences, and prepares input for QE's `dynmat.x`.
+central force differences, and can run QE's `dynmat.x`.
 
 FDVIB supports:
 
@@ -11,6 +11,7 @@ FDVIB supports:
   periodic system;
 - isolated-molecule rigid-rotor harmonic-oscillator (RRHO) thermochemistry;
 - compact Molden output for normal-mode visualization;
+- Shermo 2.6.2-compatible `.shm` export;
 - harmonic and frequency-floor treatments of low positive frequencies.
 
 It is not a replacement for `ph.x`, `q2r.x`, Phonopy, or full periodic phonon
@@ -55,12 +56,14 @@ A calculation directory contains:
 ```text
 scf.in       Quantum ESPRESSO SCF input
 fdvib.in     displacement and execution settings
-thermo.in    thermochemistry settings
+thermo.in    optional thermochemistry settings
 ```
 
 The QE input must use `ibrav=0`, `ATOMIC_POSITIONS angstrom`, and
 `CELL_PARAMETERS angstrom`. It must also define `calculation='scf'`,
-`tprnfor=.true.`, and an `outdir`.
+`tprnfor=.true.`, and an `outdir`. Do not set `startingpot='file'`: FDVIB
+runs one unperturbed reference SCF and seeds every displaced calculation from
+its converged charge density.
 
 Configuration templates are available in [`examples/local`](examples/local)
 and [`examples/gas`](examples/gas). Gas calculations require
@@ -76,38 +79,36 @@ with `pressure_atm`, where `1 atm = 101325 Pa`; gas calculations do not use
 From the calculation directory:
 
 ```sh
-fdvib prepare fdvib.in
-fdvib run fdvib.in
-fdvib analyze fdvib.in
-
-cd fdvib/results
-dynmat.x -in dynmat.in > dynmat.out
-cd ../..
-
+fdvib -in fdvib.in
 fdvib modes fdvib/results
-fdvib thermo fdvib/results
+fdvib thermo fdvib/results -in thermo.in
+fdvib shm fdvib/results
 ```
 
-`prepare` creates positive and negative displacements for each selected
-Cartesian coordinate. `run` executes the corresponding `pw.x` calculations.
-`analyze` forms and symmetrizes the finite-difference Hessian and writes the QE
-dynamical matrix and `dynmat.in`. Execution of `dynmat.x` remains an explicit
-QE post-processing step. Generated local and gas inputs both use `asr='no'`;
-rigid-body modes are excluded later according to molecular degrees of freedom.
+The calculation command runs or resumes the reference SCF, all positive and
+negative displacement SCFs, Hessian assembly, and optional `dynmat.x`
+execution. Set `run_dynmat=.true.` or `.false.` in `fdvib.in`. Each displaced
+SCF uses its own QE `outdir` and an FDVIB-injected `startingpot='file'`.
+Generated local and gas inputs both use `asr='no'`; rigid-body modes are
+excluded later according to molecular degrees of freedom.
 
-Existing QE output and Molden files are not overwritten. Dataset settings used
-by `analyze` are loaded from immutable snapshots created by `prepare`.
+Repeated calculation commands validate immutable dataset state and skip
+completed stages. Failed attempts are retained instead of overwritten.
+The stored electronic energy is the last converged `! total energy` from the
+unperturbed reference SCF, converted from Ry to Hartree without adding ZPE.
 
-The result directory contains:
+Depending on the requested calculation and analysis commands, the result
+directory contains:
 
 ```text
 fdvib/results/
   system.dynG
   system.freq.out
   system.mold
+  system.shm
   dynmat.in
   fdvib.in.reference
-  thermo.in
+  electronic_structure.dat
   thermo.dat
 ```
 
@@ -117,6 +118,8 @@ The output prefix may differ from `system` according to `fdvib.in`.
 
 See the [FDVIB reference](docs/index.md) for configuration fields, physical
 models, output definitions, restart behavior, and diagnostics.
+The exact Shermo 2.6.2 text contract is documented in the
+[SHM compatibility specification](SHM_COMPATIBILITY_SPEC_ZH.md).
 Release history is recorded in the [changelog](CHANGELOG.md).
 
 ## License

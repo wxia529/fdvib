@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-24
+
+### Added
+
+- Add a resumable single-command calculation workflow through
+  `fdvib -in fdvib.in`, with operating-system locking, immutable dataset
+  fingerprints, append-only attempts, completion markers, result digests,
+  and recovery of validated uncommitted results.
+- Run and validate an unperturbed reference SCF before displacement jobs, then
+  seed every displaced SCF from an independent copy of its converged charge
+  density using FDVIB-managed `startingpot='file'`.
+- Save the last converged reference-SCF total energy in Hartree as portable
+  `electronic_structure.dat` metadata.
+- Add optional automatic `dynmat.x` execution controlled by `run_dynmat` and
+  `dynmat_command`.
+- Add `fdvib shm RESULTS_DIR` for validated Shermo 2.6.2-compatible `.shm`
+  export. Gas exports remove 3, 5, or 6 rigid modes according to molecular
+  degrees of freedom, preserve separately calculated components of split
+  degenerate vibrations, and retain remaining internal imaginary modes.
+- Add regression coverage for reference-density seeding, restart and recovery,
+  delayed `dynmat.x` execution, single-atom SHM output, nonlinear molecules,
+  and linear CO2 mode selection.
+
+### Changed
+
+- Replace the separate prepare, run, and analyze commands with the resumable
+  `fdvib -in fdvib.in` calculation workflow.
+- Replace separate `mpi_command` and `pw_command` settings with one complete
+  launcher command in `pw_command`.
+- Rename configuration fields `workdir` to `outdir` and `output_prefix` to
+  `prefix`; require an explicit `run_dynmat` logical setting.
+- Keep Molden mode and thermochemistry analysis as separate commands; the
+  latter now accepts an explicit `-in thermo.in` argument.
+- Make configuration parsing strict: reject unknown, duplicate, malformed,
+  or invalid fields instead of silently accepting ambiguous input.
+- Keep `asr='no'` for both gas and local calculations and cross-check this,
+  along with the interaction-block model, before SHM export.
+- Update calculation layouts, examples, command documentation, recovery
+  semantics, and the Shermo compatibility reference for the new workflow.
+
 ## [0.2.2] - 2026-06-22
 
 ### Fixed
@@ -72,7 +112,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Tag-triggered Linux release packaging through GitHub Actions.
 - BSD 3-Clause licensing.
 
-[Unreleased]: https://github.com/wxia529/fdvib/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/wxia529/fdvib/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/wxia529/fdvib/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/wxia529/fdvib/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/wxia529/fdvib/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/wxia529/fdvib/compare/v0.1.1...v0.2.0

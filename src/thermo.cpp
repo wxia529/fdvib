@@ -73,12 +73,12 @@ std::vector<Mode> gas_vibrational_modes(const std::vector<Mode> &modes,
     return vibrations;
 }
 
-void thermo(const fs::path &results) {
+void thermo(const fs::path &results, const fs::path &thermo_input) {
     if (!fs::is_directory(results)) throw std::runtime_error("Not a result directory: " + results.string());
-    const auto c=Config::load(results/"thermo.in");
+    const auto c=Config::load(thermo_input);
     c.require_only({"model", "temperature_k", "pressure_atm", "symmetry_number",
                     "electronic_degeneracy", "rotor_type", "low_frequency_model",
-                    "frequency_floor_cm1", "zero_tolerance_cm1"}, "thermo.in");
+                    "frequency_floor_cm1", "zero_tolerance_cm1"}, thermo_input.string());
     const std::string model=lower(c.get("model"));
     if(model!="gas_rrho"&&model!="local_harmonic") throw std::runtime_error("THERMO model must be gas_rrho or local_harmonic");
     if(model=="local_harmonic" &&

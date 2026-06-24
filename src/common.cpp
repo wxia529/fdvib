@@ -79,11 +79,13 @@ Config Config::load(const fs::path &p) {
         line = trim(strip_comment(line));
         if (line.empty() || line.front() == '&' || line == "/") continue;
         const auto eq = line.find('=');
-        if (eq == std::string::npos) continue;
+        if (eq == std::string::npos) throw std::runtime_error("Malformed assignment in " + p.string() + ": " + line);
         auto key = lower(trim(line.substr(0, eq)));
         auto val = trim(line.substr(eq + 1));
         if (!val.empty() && val.back() == ',') val.pop_back();
-        c.v[key] = trim(val);
+        if (key.empty() || val.empty()) throw std::runtime_error("Malformed assignment in " + p.string() + ": " + line);
+        if (c.v.count(key)) throw std::runtime_error("Duplicate parameter in " + p.string() + ": " + key);
+        c.v.emplace(std::move(key), trim(val));
     }
     return c;
 }
@@ -105,6 +107,17 @@ int Config::integer(const std::string &k, int d) const {
     return static_cast<int>(rounded);
 }
 
+bool logical_value(const Config &c, const std::string &key, bool required = false) {
+    if (!c.has(key)) {
+        if (required) throw std::runtime_error("Missing required parameter in fdvib.in: " + key);
+        return false;
+    }
+    const auto value = lower(c.get(key));
+    if (value == ".true." || value == "true") return true;
+    if (value == ".false." || value == "false") return false;
+    throw std::runtime_error("Expected logical value for " + key + ": " + c.get(key));
+}
+
 void Config::require_only(const std::set<std::string> &allowed,
                           const std::string &context) const {
     for (const auto &[key, value] : v) {
@@ -120,6 +133,7 @@ std::vector<int> integer_list(std::string s) {
     std::vector<int> out;
     int x;
     while (in >> x) out.push_back(x);
+    if (!in.eof()) throw std::runtime_error("Bad integer list: " + s);
     return out;
 }
 
@@ -128,19 +142,26 @@ Settings settings(const fs::path &config_path, const fs::path &root_override) {
     s.config_path = fs::absolute(config_path);
     s.root = root_override.empty() ? s.config_path.parent_path() : fs::absolute(root_override);
     const auto c = Config::load(s.config_path);
-    c.require_only({"scf_input", "workdir", "system_type", "selected_atoms",
+    c.require_only({"scf_input", "outdir", "system_type", "selected_atoms",
                     "displacement_angstrom", "multiplicity", "pw_command",
-                    "mpi_command", "output_prefix"}, "fdvib.in");
+                    "prefix", "run_dynmat", "dynmat_command"}, "fdvib.in");
     s.scf_input = s.root / c.get("scf_input", "scf.in");
-    s.workdir = s.root / c.get("workdir", "fdvib");
+    s.workdir = s.root / c.get("outdir", "fdvib");
     s.system_type = lower(c.get("system_type", "local"));
     s.displacement = c.real("displacement_angstrom", 0.01);
     s.multiplicity = c.integer("multiplicity", 1);
     s.multiplicity_explicit = c.has("multiplicity");
     s.pw_command = c.get("pw_command", "pw.x");
-    s.mpi_command = c.get("mpi_command", "");
-    s.output_prefix = c.get("output_prefix", "system");
+    s.dynmat_command = c.get("dynmat_command", "dynmat.x");
+    s.output_prefix = c.get("prefix", "system");
+    s.run_dynmat = logical_value(c, "run_dynmat", true);
     if (s.displacement <= 0) throw std::runtime_error("displacement_angstrom must be positive");
+    if (s.multiplicity < 1) throw std::runtime_error("multiplicity must be positive");
+    if (s.output_prefix.empty() || fs::path(s.output_prefix).filename() != fs::path(s.output_prefix) ||
+        s.output_prefix == "." || s.output_prefix == "..")
+        throw std::runtime_error("prefix must be a non-empty filename prefix without directories");
+    if (trim(s.pw_command).empty()) throw std::runtime_error("pw_command must not be empty");
+    if (s.run_dynmat && trim(s.dynmat_command).empty()) throw std::runtime_error("dynmat_command must not be empty");
     if (s.system_type != "gas" && s.system_type != "local")
         throw std::runtime_error("system_type must be gas or local");
     const auto atoms = lower(c.get("selected_atoms", ""));

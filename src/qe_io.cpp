@@ -31,11 +31,23 @@ QEInput parse_qe_input(const fs::path &p) {
     auto mnt = search_or_throw(q.clean_text, std::regex(R"(\bntyp\s*=\s*(\d+))", std::regex::icase), "ntyp");
     q.nat = std::stoi(mnat[1]); q.ntyp = std::stoi(mnt[1]);
     auto mib = search_or_throw(q.clean_text, std::regex(R"(\bibrav\s*=\s*([-+]?\d+))", std::regex::icase), "ibrav");
-    if (std::stoi(mib[1]) != 0) throw std::runtime_error("First version requires ibrav=0");
+    if (std::stoi(mib[1]) != 0) throw std::runtime_error("FDVIB requires ibrav=0");
     if (!std::regex_search(q.clean_text, std::regex(R"(\bcalculation\s*=\s*['\"]scf['\"])", std::regex::icase)))
         throw std::runtime_error("scf.in must contain calculation='scf'");
     if (!std::regex_search(q.clean_text, std::regex(R"(\btprnfor\s*=\s*\.true\.)", std::regex::icase)))
         throw std::runtime_error("scf.in must contain tprnfor=.true.");
+    const std::regex startingpot_re(R"(\bstartingpot\s*=\s*['\"]([^'\"]+)['\"])", std::regex::icase);
+    for (std::sregex_iterator it(q.clean_text.begin(), q.clean_text.end(), startingpot_re), end;
+         it != end; ++it)
+        if (lower((*it)[1]) == "file")
+            throw std::runtime_error("scf.in must not set startingpot='file'; FDVIB manages the reference density");
+    std::smatch prefix;
+    if (std::regex_search(q.clean_text, prefix,
+                          std::regex(R"(\bprefix\s*=\s*['\"]([^'\"]+)['\"])", std::regex::icase)))
+        q.prefix = prefix[1];
+    if (q.prefix.empty() || fs::path(q.prefix).filename() != fs::path(q.prefix) ||
+        q.prefix == "." || q.prefix == "..")
+        throw std::runtime_error("QE prefix must be a non-empty filename prefix without directories");
 
     int sp = -1;
     for (int i = 0; i < static_cast<int>(q.lines.size()); ++i) {
@@ -95,9 +107,49 @@ std::string displaced_input(const QEInput &q, int atom, int axis, double shift,
     for (auto &l : lines) {
         if (std::regex_search(l, ore)) {
             const auto indent = l.substr(0, l.find_first_not_of(" \t"));
-            l = indent + "outdir = '" + outdir + "'\n";
+            l = indent + "outdir = '" + outdir + "',\n";
             found = true;
         }
+    }
+    if (!found) throw std::runtime_error("Cannot find outdir in scf.in");
+    bool startingpot_found = false;
+    std::regex spre(R"(^\s*startingpot\s*=)", std::regex::icase);
+    for (auto &l : lines) if (std::regex_search(l, spre)) {
+        const auto indent = l.substr(0, l.find_first_not_of(" \t"));
+        l = indent + "startingpot = 'file',\n";
+        startingpot_found = true;
+    }
+    if (!startingpot_found) {
+        int electrons = -1;
+        for (int i = 0; i < static_cast<int>(lines.size()); ++i)
+            if (std::regex_search(trim(lines[i]), std::regex(R"(^&ELECTRONS\b)", std::regex::icase))) {
+                electrons = i;
+                break;
+            }
+        if (electrons >= 0) {
+            int end = electrons + 1;
+            while (end < static_cast<int>(lines.size()) && trim(strip_comment(lines[end])) != "/") ++end;
+            if (end == static_cast<int>(lines.size())) throw std::runtime_error("Unterminated &ELECTRONS namelist");
+            lines.insert(lines.begin() + end, "  startingpot = 'file',\n");
+        } else {
+            int first_card = std::min({q.pos_header, q.cell_header});
+            for (int i = 0; i < static_cast<int>(lines.size()); ++i)
+                if (std::regex_search(trim(lines[i]), std::regex(R"(^ATOMIC_SPECIES\b)", std::regex::icase)))
+                    first_card = std::min(first_card, i);
+            lines.insert(lines.begin() + first_card, "&ELECTRONS\n  startingpot = 'file',\n/\n");
+        }
+    }
+    return std::accumulate(lines.begin(), lines.end(), std::string{});
+}
+
+std::string reference_input(const QEInput &q, const std::string &outdir) {
+    auto lines = q.lines;
+    bool found = false;
+    const std::regex ore(R"(^\s*outdir\s*=)", std::regex::icase);
+    for (auto &l : lines) if (std::regex_search(l, ore)) {
+        const auto indent = l.substr(0, l.find_first_not_of(" \t"));
+        l = indent + "outdir = '" + outdir + "',\n";
+        found = true;
     }
     if (!found) throw std::runtime_error("Cannot find outdir in scf.in");
     return std::accumulate(lines.begin(), lines.end(), std::string{});
