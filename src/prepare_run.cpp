@@ -326,6 +326,9 @@ void run_displacements(const Settings &s, const QEInput &q,
         fs::copy_file(reference_density, seeded);
         if (file_digest(seeded) != file_digest(reference_density))
             throw std::runtime_error("Copied reference charge density failed verification: " + seeded.string());
+        const auto paw_src = reference_density.parent_path() / "paw.txt";
+        if (fs::is_regular_file(paw_src))
+            fs::copy_file(paw_src, seeded.parent_path() / "paw.txt");
         const auto cmd = s.pw_command + " -in " + shell_quote(fs::relative(input, s.root).string());
         std::cout << "Running " << id << std::endl;
         const int rc = shell_run(cmd, s.root, fs::relative(output, s.root));

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-06-24
+
+### Fixed
+
+- Copy `paw.txt` alongside the reference charge density when seeding displaced
+  SCF calculations, fixing `Error in routine read_scf (1): Reading PAW becsum`
+  for PAW pseudopotential workflows.
+
 ## [0.3.0] - 2026-06-24
 
 ### Added
