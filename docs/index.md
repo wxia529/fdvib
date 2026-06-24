@@ -269,19 +269,19 @@ the internal `1e-6 cm^-1` zero tolerance.
 
 ## Shermo `.shm` export (recommended)
 
-**Shermo is the recommended thermochemistry post-processor for FDVIB results.**
+**Shermo is the recommended mature and comprehensive thermochemistry
+post-processor for the frequency results.**
 After `dynmat.x` has produced a valid frequency file, run:
 
 ```bash
 fdvib shm fdvib/results
 ```
 
-The `.shm` export produces an input file for `Shermo`, a mature and
-comprehensive code for calculating molecular thermochemistry properties
-(see [sobereva.com/soft/shermo](http://sobereva.com/soft/shermo)).
-Shermo provides automated point-group detection, full RRHO with Grimme's
-interpolation, and detailed per-mode contributions—features that are
-deliberately kept out of FDVIB's lightweight built-in thermo analysis.
+The `.shm` export produces an input file for
+[Shermo](http://sobereva.com/soft/shermo).
+> *Quoted from http://sobereva.com/soft/shermo:* Shermo is a free, general,
+> very easy-to-use and flexible code for calculating molecular thermochemistry
+> data based on ideal gas assumption.
 
 > **If Shermo is utilized in your work, the following paper must be cited:**
 >
@@ -340,9 +340,7 @@ it to `.shm` and refuses to overwrite an existing file.
 
 ## Built-in thermochemistry
 
-FDVIB includes a lightweight built-in thermo analysis for quick checks and
-automated workflows. For production-quality results with automated point-group
-detection and Grimme's interpolation, prefer the Shermo `.shm` export above.
+FDVIB includes a built-in thermo analysis for quick checks.
 
 ```bash
 fdvib thermo fdvib/results -in thermo.in

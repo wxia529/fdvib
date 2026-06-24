@@ -119,18 +119,20 @@ The output prefix may differ from `system` according to `fdvib.in`.
 See the [FDVIB reference](docs/index.md) for configuration fields, physical
 models, output definitions, restart behavior, and diagnostics.
 
-**Thermochemistry post-processing**: Shermo is the recommended tool for
-comprehensive molecular thermochemistry analysis. FDVIB's `shm` command
-exports results in Shermo's native format so you can take advantage of its
-automated point-group detection, full RRHO treatment, and detailed reporting.
+**Thermochemistry post-processing**: The mature and comprehensive
+[Shermo](http://sobereva.com/soft/shermo) program is the recommended tool
+for molecular thermochemistry analysis. FDVIB's `shm` command exports
+results in Shermo's native format.
+> *Quoted from http://sobereva.com/soft/shermo:* Shermo is a free, general,
+> very easy-to-use and flexible code for calculating molecular thermochemistry
+> data based on ideal gas assumption.
 
 > If Shermo is utilized in your work, the following paper must be cited:
 > Tian Lu, Qinxue Chen, *Shermo: A general code for calculating molecular
 > thermodynamic properties*, Comput. Theor. Chem., 1200, 113249 (2021)
 > DOI: [10.1016/j.comptc.2021.113249](https://doi.org/10.1016/j.comptc.2021.113249)
 
-FDVIB's built-in `thermo` command is a lightweight alternative for quick checks
-and automated workflows.
+FDVIB's built-in `thermo` command is an alternative for quick checks.
 
 Release history is recorded in the [changelog](CHANGELOG.md).
 
