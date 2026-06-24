@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(fdvib VERSION 0.3.0 LANGUAGES CXX)
+project(fdvib VERSION 0.3.1 LANGUAGES CXX)
 
 add_executable(fdvib
   src/main.cpp
