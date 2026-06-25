@@ -76,8 +76,13 @@ CELL_PARAMETERS angstrom
 ...
 ```
 
-FDVIB currently requires `ibrav=0`, Cartesian positions in Angstrom, and cell
-vectors in Angstrom. `tprnfor=.true.` is required for force extraction.
+FDVIB requires `ibrav=0` and explicit units on the position and cell cards.
+Accepted position units are `angstrom`, `bohr`, `alat`, and `crystal`.
+Accepted cell units are `angstrom`, `bohr`, and `alat`. QE spellings with
+bare units, parentheses, or braces are accepted, for example
+`ATOMIC_POSITIONS angstrom`, `ATOMIC_POSITIONS (bohr)`, and
+`ATOMIC_POSITIONS {crystal}`. `crystal_sg` and omitted/deprecated default units
+are not supported. `tprnfor=.true.` is required for force extraction.
 
 Do not set this in `scf.in`:
 

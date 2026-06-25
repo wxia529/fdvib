@@ -47,20 +47,28 @@ struct Config {
 std::vector<int> integer_list(std::string s);
 
 struct Species { std::string symbol, pseudo; double mass{}; };
-struct Atom { std::string symbol; Vec3 r{}; std::vector<std::string> extra; int type{}; };
+struct Atom {
+    std::string symbol;
+    Vec3 r{};
+    Vec3 input_r{};
+    std::vector<std::string> extra;
+    int type{};
+};
 
 struct QEInput {
     std::string text, clean_text;
     std::string prefix{"pwscf"};
     std::vector<std::string> lines;
-    int nat{}, ntyp{}, pos_header{}, pos_start{}, cell_header{};
+    int nat{}, ntyp{}, pos_header{-1}, pos_start{-1}, cell_header{-1};
+    std::string positions_unit{"angstrom"}, cell_unit{"angstrom"};
+    double alat_angstrom{};
     std::vector<Species> species;
     std::vector<Atom> atoms;
     std::array<Vec3, 3> cell{};
 };
 
 QEInput parse_qe_input(const fs::path &p);
-std::string format_position(const Atom &a);
+std::string format_position(const Atom &a, const Vec3 &coord);
 std::string reference_input(const QEInput &q, const std::string &outdir,
                             const fs::path &source_dir, const fs::path &run_dir);
 std::string displaced_input(const QEInput &q, int atom, int axis, double shift,

@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-06-25
+
+### Added
+
+- Support explicit QE position units `angstrom`, `bohr`, `alat`, and `crystal`
+  when generating finite-displacement inputs.
+- Support explicit QE cell units `angstrom`, `bohr`, and `alat`.
+- Accept QE card-unit spellings with bare units, parentheses, or braces, such
+  as `ATOMIC_POSITIONS (bohr)` and `ATOMIC_POSITIONS {crystal}`.
+
+### Changed
+
+- Preserve the user's original position unit when writing displaced QE inputs,
+  converting the Cartesian FDVIB displacement into `bohr`, `alat`, or
+  fractional `crystal` increments as needed.
+- Reject omitted/deprecated QE card units and `ATOMIC_POSITIONS crystal_sg`
+  explicitly instead of silently assuming an unsafe interpretation.
+
 ## [0.3.3] - 2026-06-24
 
 ### Fixed
@@ -152,7 +170,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Tag-triggered Linux release packaging through GitHub Actions.
 - BSD 3-Clause licensing.
 
-[Unreleased]: https://github.com/wxia529/fdvib/compare/v0.3.3...HEAD
+[Unreleased]: https://github.com/wxia529/fdvib/compare/v0.3.4...HEAD
+[0.3.4]: https://github.com/wxia529/fdvib/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/wxia529/fdvib/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/wxia529/fdvib/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/wxia529/fdvib/compare/v0.3.0...v0.3.1

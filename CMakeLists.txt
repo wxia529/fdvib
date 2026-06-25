@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(fdvib VERSION 0.3.3 LANGUAGES CXX)
+project(fdvib VERSION 0.3.4 LANGUAGES CXX)
 
 add_executable(fdvib
   src/main.cpp
@@ -26,6 +26,8 @@ if(BUILD_TESTING)
            COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/gas_rrho_modes.sh $<TARGET_FILE:fdvib>)
   add_test(NAME prepare_workflow
            COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/prepare_workflow.sh $<TARGET_FILE:fdvib>)
+  add_test(NAME qe_units
+           COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/qe_units.sh $<TARGET_FILE:fdvib>)
   add_test(NAME shm_export
            COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/shm_export.sh $<TARGET_FILE:fdvib>)
 endif()
