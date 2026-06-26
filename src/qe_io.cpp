@@ -99,6 +99,7 @@ QEInput parse_qe_input(const fs::path &p) {
     auto mnat = search_or_throw(q.clean_text, std::regex(R"(\bnat\s*=\s*(\d+))", std::regex::icase), "nat");
     auto mnt = search_or_throw(q.clean_text, std::regex(R"(\bntyp\s*=\s*(\d+))", std::regex::icase), "ntyp");
     q.nat = std::stoi(mnat[1]); q.ntyp = std::stoi(mnt[1]);
+    if (q.nat <= 0 || q.ntyp <= 0) throw std::runtime_error("nat and ntyp must be positive");
     auto mib = search_or_throw(q.clean_text, std::regex(R"(\bibrav\s*=\s*([-+]?\d+))", std::regex::icase), "ibrav");
     if (std::stoi(mib[1]) != 0) throw std::runtime_error("FDVIB requires ibrav=0");
     if (!std::regex_search(q.clean_text, std::regex(R"(\bcalculation\s*=\s*['\"]scf['\"])", std::regex::icase)))
@@ -145,6 +146,13 @@ QEInput parse_qe_input(const fs::path &p) {
     }
     if (sp < 0 || q.pos_start < 0 || q.cell_header < 0)
         throw std::runtime_error("Require ATOMIC_SPECIES, ATOMIC_POSITIONS, and CELL_PARAMETERS");
+    const auto line_count = static_cast<int>(q.lines.size());
+    if (sp + q.ntyp >= line_count)
+        throw std::runtime_error("ATOMIC_SPECIES block is shorter than ntyp");
+    if (q.pos_start + q.nat > line_count)
+        throw std::runtime_error("ATOMIC_POSITIONS block is shorter than nat");
+    if (q.cell_header + 3 >= line_count)
+        throw std::runtime_error("CELL_PARAMETERS block is incomplete");
     if ((q.positions_unit == "alat" || q.cell_unit == "alat") && q.alat_angstrom <= 0.0)
         throw std::runtime_error("alat units require A or celldm(1) in &SYSTEM");
 
@@ -159,6 +167,8 @@ QEInput parse_qe_input(const fs::path &p) {
         std::istringstream ls(q.lines[q.pos_start + i]);
         Atom a;
         if (!(ls >> a.symbol >> a.input_r[0] >> a.input_r[1] >> a.input_r[2])) throw std::runtime_error("Bad ATOMIC_POSITIONS line");
+        if (!std::isfinite(a.input_r[0]) || !std::isfinite(a.input_r[1]) || !std::isfinite(a.input_r[2]))
+            throw std::runtime_error("Atomic position must be finite");
         std::string x; while (ls >> x) a.extra.push_back(x);
         auto it = std::find_if(q.species.begin(), q.species.end(), [&](const Species &s){ return s.symbol == a.symbol; });
         if (it == q.species.end()) throw std::runtime_error("Unknown species " + a.symbol);
@@ -168,6 +178,8 @@ QEInput parse_qe_input(const fs::path &p) {
     for (int i = 0; i < 3; ++i) {
         std::istringstream ls(q.lines[q.cell_header + 1 + i]);
         if (!(ls >> q.cell[i][0] >> q.cell[i][1] >> q.cell[i][2])) throw std::runtime_error("Bad CELL_PARAMETERS");
+        if (!std::isfinite(q.cell[i][0]) || !std::isfinite(q.cell[i][1]) || !std::isfinite(q.cell[i][2]))
+            throw std::runtime_error("CELL_PARAMETERS values must be finite");
     }
     const double cell_factor = q.cell_unit == "angstrom" ? 1.0 :
                                q.cell_unit == "bohr" ? BOHR_TO_ANG : q.alat_angstrom;

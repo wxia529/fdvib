@@ -59,16 +59,17 @@ fdvib.in     displacement and execution settings
 thermo.in    optional thermochemistry settings
 ```
 
-The QE input must use `ibrav=0`, `ATOMIC_POSITIONS angstrom`, and
-`CELL_PARAMETERS angstrom`. It must also define `calculation='scf'`,
-`tprnfor=.true.`, and an `outdir`. Do not set `startingpot='file'`: FDVIB
+The QE input must use `ibrav=0` and explicit supported units on
+`ATOMIC_POSITIONS` and `CELL_PARAMETERS`. It must also define
+`calculation='scf'`, `tprnfor=.true.`, and an `outdir`. Do not set
+`startingpot='file'`: FDVIB
 runs one unperturbed reference SCF and seeds every displaced calculation from
 its converged charge density. Both non-HDF5 QE `charge-density.dat` and HDF5
 `charge-density.hdf5` outputs are supported.
 
 Configuration templates are available in [`examples/local`](examples/local)
 and [`examples/gas`](examples/gas). Gas calculations require
-`selected_atoms='all'`, an explicit spin multiplicity, and consistent QE spin
+`selected_atoms = all`, an explicit spin multiplicity, and consistent QE spin
 settings. Gas RRHO thermochemistry removes exactly five rigid-body modes for a
 linear molecule or six for a nonlinear molecule and rejects any imaginary
 frequency remaining in the true vibrational modes. Gas pressure is specified
@@ -88,7 +89,7 @@ fdvib shm fdvib/results
 
 The calculation command runs or resumes the reference SCF, all positive and
 negative displacement SCFs, Hessian assembly, and optional `dynmat.x`
-execution. Set `run_dynmat=.true.` or `.false.` in `fdvib.in`. Each displaced
+execution. Set `run_dynmat = true` or `false` in `fdvib.in`. Each displaced
 SCF uses its own QE `outdir` and an FDVIB-injected `startingpot='file'`.
 Displaced inputs also use `disk_io='nowf'` to avoid retaining unnecessary
 wavefunction files.
@@ -118,8 +119,7 @@ fdvib/results/
   system.mold
   system.shm
   dynmat.in
-  fdvib.in.reference
-  electronic_structure.dat
+  metadata.dat
   thermo.dat
 ```
 

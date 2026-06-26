@@ -20,9 +20,11 @@ Basis vectors
     3    2 0.0000000000 0.1700000000 0.0000000000
 EOF
 
-cat > "$case_dir/fdvib.in.reference" <<'EOF'
-system_type = 'gas'
+cat > "$case_dir/metadata.dat" <<'EOF'
+program = qe
+mode_selection = gas
 multiplicity = 1
+electronic_energy_hartree = -76.0
 EOF
 
 cat > "$case_dir/dynmat.in" <<'EOF'
@@ -37,12 +39,6 @@ pressure_atm = 1.0
 symmetry_number = 1
 rotor_type = 'nonlinear'
 low_frequency_model = 'harmonic'
-EOF
-
-cat > "$case_dir/electronic_structure.dat" <<'EOF'
-electronic_energy_hartree = -76.0
-multiplicity = 1
-source = 'scf.out'
 EOF
 
 append_mode() {

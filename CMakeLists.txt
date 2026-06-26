@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(fdvib VERSION 0.3.4 LANGUAGES CXX)
+project(fdvib VERSION 0.4.0 LANGUAGES CXX)
 
 add_executable(fdvib
   src/main.cpp
@@ -9,6 +9,7 @@ add_executable(fdvib
   src/analysis.cpp
   src/thermo.cpp
   src/shm.cpp
+  src/results.cpp
 )
 target_compile_features(fdvib PRIVATE cxx_std_17)
 target_compile_options(fdvib PRIVATE -Wall -Wextra -Wpedantic)

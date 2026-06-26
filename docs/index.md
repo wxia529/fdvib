@@ -112,39 +112,37 @@ convergence is important because force noise directly affects frequencies.
 
 Local periodic example:
 
-```fortran
-&FDVIB
-  scf_input             = 'scf.in',
-  outdir                = 'fdvib',
-  system_type           = 'local',
-  selected_atoms        = 65, 66, 67,
-  displacement_angstrom = 0.01,
-  pw_command            = 'mpirun -np 8 pw.x',
-  prefix                = 'system',
-  run_dynmat            = .true.,
-  dynmat_command        = 'dynmat.x',
-/
+```text
+scf_input = scf.in
+outdir = fdvib
+system_type = local
+selected_atoms = 65,66,67
+displacement_angstrom = 0.01
+pw_command = mpirun -np 8 pw.x
+prefix = system
+run_dynmat = true
+dynmat_command = dynmat.x
 ```
 
 Gas molecule example:
 
-```fortran
-&FDVIB
-  scf_input             = 'scf.in',
-  outdir                = 'fdvib',
-  system_type           = 'gas',
-  selected_atoms        = 'all',
-  displacement_angstrom = 0.01,
-  multiplicity          = 1,
-  pw_command            = 'mpirun -np 8 pw.x',
-  prefix                = 'molecule',
-  run_dynmat            = .true.,
-  dynmat_command        = 'dynmat.x',
-/
+```text
+scf_input = scf.in
+outdir = fdvib
+system_type = gas
+selected_atoms = all
+displacement_angstrom = 0.01
+multiplicity = 1
+pw_command = mpirun -np 8 pw.x
+prefix = molecule
+run_dynmat = true
+dynmat_command = dynmat.x
 ```
 
-The parser accepts one `key=value` assignment per line, ignores `!` comments,
-and rejects unknown parameters.
+The parser accepts one `key = value` assignment per line, ignores `#` and `!`
+comments, and rejects unknown parameters, duplicate parameters, and namelist
+syntax such as `&FDVIB ... /`. Values may be quoted, but quotes are not
+required.
 
 | Parameter | Meaning |
 |---|---|
@@ -196,12 +194,12 @@ The initial SCF is committed only after FDVIB verifies the process exit
 status, `JOB DONE`, SCF convergence, the complete force block, and a nonempty
 charge-density file. When QE produces `paw.txt`, FDVIB includes its presence
 and digest in the completion snapshot and verifies both files on restart.
-FDVIB reads the last `! total energy = ... Ry` record from
-the unperturbed reference SCF, divides it by two to convert Rydberg to Hartree,
-and stores the pure reference value in `electronic_structure.dat`. It does not
-use a displaced energy or add ZPE. For calculations using electronic smearing,
-the QE total energy can contain a smearing contribution; isolated-molecule
-inputs should avoid artificial electronic-temperature contributions.
+FDVIB reads the last `! total energy = ... Ry` record from the unperturbed
+reference SCF, divides it by two to convert Rydberg to Hartree, and stores the
+pure reference value in result metadata. It does not use a displaced energy or
+add ZPE. For calculations using electronic smearing, the QE total energy can
+contain a smearing contribution; isolated-molecule inputs should avoid
+artificial electronic-temperature contributions.
 
 A failed or interrupted calculation remains available for diagnosis. The next
 calculation invocation creates a fresh numbered directory and seeds it from the immutable
@@ -241,15 +239,14 @@ writes:
 ```text
 fdvib/results/<prefix>.dynG
 fdvib/results/dynmat.in
-fdvib/results/fdvib.in.reference
-fdvib/results/electronic_structure.dat
+fdvib/results/metadata.dat
 ```
 
 Local calculations set `remove_interaction_blocks=.true.`. Gas calculations
 retain the complete molecular Hessian. Both use `asr='no'`; rigid translations
 and rotations are handled later by the appropriate analysis model.
 
-With `run_dynmat=.true.`, FDVIB runs `dynmat_command` in an isolated attempt,
+With `run_dynmat=true`, FDVIB runs `dynmat_command` in an isolated attempt,
 parses all `3N` frequencies and eigenvectors, and publishes:
 
 ```text
@@ -257,8 +254,8 @@ fdvib/results/dynmat.out
 fdvib/results/<prefix>.freq.out
 ```
 
-With `run_dynmat=.false.`, calculation stops after `dynG` and `dynmat.in`.
-Changing only this setting to `.true.` and repeating `fdvib -inp fdvib.in`
+With `run_dynmat=false`, calculation stops after `dynG` and `dynmat.in`.
+Changing only this setting to `true` and repeating `fdvib -inp fdvib.in`
 skips reference, displacement, and Hessian stages and runs only `dynmat.x`.
 
 ## State and recovery
@@ -319,17 +316,34 @@ The `.shm` export produces an input file for
 > thermodynamic properties*, Comput. Theor. Chem., 1200, 113249 (2021)
 > DOI: [10.1016/j.comptc.2021.113249](https://doi.org/10.1016/j.comptc.2021.113249)
 
-The command writes `<prefix>.shm` with the four sections expected by
-Shermo 2.6.2: electronic energy, wavenumbers, atoms, and electronic levels.
-The electronic energy is the unperturbed reference SCF energy in Hartree;
-coordinates are written in Angstrom, masses in amu, and the ground-state
-electronic degeneracy is the configured multiplicity.
+The command requires exactly one `<prefix>.dynG` and one `<prefix>.freq.out`.
+It optionally reads `metadata.dat`; without it, the defaults are
+`program=qe`, `mode_selection=all`, `multiplicity=1`, and
+`electronic_energy_hartree=0.0`. The default `all` mode writes every nonzero
+frequency and omits only frequencies exactly equal to `0.0`.
+
+`metadata.dat` may contain:
+
+```text
+program = qe
+mode_selection = gas
+electronic_energy_hartree = -76.0
+multiplicity = 1
+selected_atoms = all
+```
+
+`program` is a forward-compatible interface for multiple source programs; the
+current reader supports only `qe`. `mode_selection` controls frequency
+selection: `all` writes all nonzero frequencies, `gas` removes rigid
+translations/rotations by molecular geometry, and `local` keeps
+`3 * selected_atoms` modes.
+
+The command writes `<prefix>.shm` with electronic energy, wavenumbers, atoms,
+and electronic levels. Coordinates are written in Angstrom, masses in amu, and
+the ground-state electronic degeneracy is the configured multiplicity.
 
 QE species labels such as `C1` or `O_ads` are reduced to their leading
 standard element symbol; labels that cannot be mapped to H--Og are rejected.
-The exporter requires `asr='no'` and cross-checks
-`remove_interaction_blocks` against the saved gas/local dataset before using
-the frequencies.
 
 For gas systems, FDVIB uses the same inertia threshold as Shermo to classify
 an atom, linear molecule, or nonlinear molecule. It removes the 3, 5, or 6
@@ -378,35 +392,32 @@ fdvib thermo fdvib/results -inp thermo.in
 
 Local harmonic example:
 
-```fortran
-&THERMO
-  model                  = 'local_harmonic',
-  temperature_k          = 298.15,
-  low_frequency_model    = 'frequency_floor',
-  frequency_floor_cm1    = 50.0,
-  zero_tolerance_cm1     = 1.0,
-/
+```text
+model = local_harmonic
+temperature_k = 298.15
+low_frequency_model = frequency_floor
+frequency_floor_cm1 = 50.0
+zero_tolerance_cm1 = 1.0
 ```
 
 Gas RRHO example:
 
-```fortran
-&THERMO
-  model                    = 'gas_rrho',
-  temperature_k            = 298.15,
-  pressure_atm             = 1.0,
-  symmetry_number          = 1,
-  electronic_degeneracy    = 'auto',
-  rotor_type               = 'auto',
-  low_frequency_model      = 'harmonic',
-/
+```text
+model = gas_rrho
+temperature_k = 298.15
+pressure_atm = 1.0
+symmetry_number = 1
+electronic_degeneracy = auto
+rotor_type = auto
+low_frequency_model = harmonic
 ```
 
 Local analysis reports vibrational ZPE, internal energy, entropy, and free
 energy. Gas RRHO additionally includes translation, rotation, and electronic
 degeneracy. It removes three rigid modes for an atom, five for a linear
 molecule, or six for a nonlinear molecule, then rejects any remaining
-non-positive vibrational frequency. Results are written to
+non-positive vibrational frequency. Gas RRHO requires `metadata.dat` with
+`mode_selection = gas` so the spin multiplicity is unambiguous. Results are written to
 `fdvib/results/thermo.dat`.
 
 Changing temperature or other thermochemistry settings requires only another

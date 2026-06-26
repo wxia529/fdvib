@@ -98,6 +98,61 @@ std::vector<double> retain_largest_modes(const std::vector<Mode> &modes, std::si
     return frequencies;
 }
 
+std::vector<int> metadata_selected_atoms(const ResultMetadata &metadata, std::size_t nat) {
+    std::vector<int> selected;
+    if (metadata.selected_atoms == "all") {
+        selected.resize(nat);
+        std::iota(selected.begin(), selected.end(), 1);
+    } else {
+        selected = integer_list(metadata.selected_atoms);
+    }
+    if (selected.empty()) throw std::runtime_error("Local SHM export requires selected_atoms in metadata.dat");
+    std::set<int> unique;
+    for (const int atom : selected)
+        if (atom < 1 || static_cast<std::size_t>(atom) > nat || !unique.insert(atom).second)
+            throw std::runtime_error("Invalid/duplicate selected atom in metadata.dat");
+    return selected;
+}
+
+struct ShmFrequencies {
+    std::vector<double> values;
+    std::string classification;
+    double largest_removed{};
+};
+
+ShmFrequencies select_shm_frequencies(const ResultMetadata &metadata,
+                                      const DynGeometry &geometry,
+                                      const std::vector<Mode> &modes) {
+    ShmFrequencies selected;
+    const auto nat = geometry.masses.size();
+    if (metadata.mode_selection == "all") {
+        selected.classification = "all";
+        selected.values.reserve(modes.size());
+        for (const auto &mode : modes)
+            if (mode.freq != 0.0) selected.values.push_back(mode.freq);
+        return selected;
+    }
+    std::size_t keep = 0;
+    if (metadata.mode_selection == "gas") {
+        if (nat == 1) {
+            keep = 0;
+            selected.classification = "atom";
+        } else {
+            const auto inertia = inertia_eigenvalues(geometry);
+            const bool linear = std::any_of(inertia.begin(), inertia.end(), [](double value) { return value < 0.001; });
+            keep = 3*nat - (linear ? 5 : 6);
+            selected.classification = linear ? "linear" : "nonlinear";
+        }
+    } else if (metadata.mode_selection == "local") {
+        keep = 3 * metadata_selected_atoms(metadata, nat).size();
+        selected.classification = "local";
+    } else {
+        throw std::runtime_error("mode_selection must be all, gas, or local in metadata.dat");
+    }
+    selected.values = retain_largest_modes(modes, keep, selected.largest_removed);
+    return selected;
+}
+
 void require_no_extra(std::istringstream &in) {
     std::string extra;
     if (in >> extra) throw std::runtime_error("Extra field in generated SHM data line");
@@ -154,63 +209,18 @@ void validate_shm(const fs::path &path) {
 } // namespace
 
 void shm(const fs::path &results) {
-    if (!fs::is_directory(results)) throw std::runtime_error("Not a result directory: " + results.string());
-    std::vector<fs::path> dyns, freqs;
-    for (const auto &entry : fs::directory_iterator(results)) {
-        const auto name = entry.path().filename().string();
-        if (name.size() >= 5 && name.substr(name.size()-5) == ".dynG") dyns.push_back(entry.path());
-        if (name.size() >= 9 && name.substr(name.size()-9) == ".freq.out") freqs.push_back(entry.path());
-    }
-    if (dyns.size() != 1 || freqs.size() != 1)
-        throw std::runtime_error("SHM export requires exactly one .dynG and one .freq.out");
-    const auto geometry = read_dyn_geometry(dyns.front());
-    const auto modes = parse_modes(freqs.front(), static_cast<int>(geometry.masses.size()));
-    const auto dataset = Config::load(results / "fdvib.in.reference");
-    const auto electronic = Config::load(results / "electronic_structure.dat");
-    electronic.require_only({"electronic_energy_hartree", "multiplicity", "source"}, "electronic_structure.dat");
-    const double energy = electronic.real("electronic_energy_hartree", std::numeric_limits<double>::quiet_NaN());
-    const int multiplicity = electronic.integer("multiplicity", 0);
-    if (!std::isfinite(energy) || multiplicity <= 0) throw std::runtime_error("Invalid electronic_structure.dat for SHM export");
-    if (dataset.integer("multiplicity", 0) != multiplicity)
-        throw std::runtime_error("Multiplicity differs between dataset and electronic_structure.dat");
+    const auto files = result_files(results, "SHM export");
+    const auto geometry = read_dyn_geometry(files.dyn);
+    const auto modes = parse_modes(files.freq, static_cast<int>(geometry.masses.size()));
+    const auto metadata = result_metadata(results, false);
+    const double energy = metadata.electronic_energy_hartree;
+    const int multiplicity = metadata.multiplicity;
+    const auto selected = select_shm_frequencies(metadata, geometry, modes);
 
-    const auto system_type = lower(dataset.get("system_type"));
-    const auto dynmat_input = Config::load(results / "dynmat.in");
-    if (lower(dynmat_input.get("asr")) != "no")
-        throw std::runtime_error("SHM export requires asr='no' in dynmat.in");
-    const auto remove_value = lower(dynmat_input.get("remove_interaction_blocks"));
-    if (remove_value != ".true." && remove_value != "true" &&
-        remove_value != ".false." && remove_value != "false")
-        throw std::runtime_error("Invalid remove_interaction_blocks in dynmat.in");
-    const bool removes_blocks = remove_value == ".true." || remove_value == "true";
-    if (system_type == "gas" && removes_blocks)
-        throw std::runtime_error("Gas SHM export requires remove_interaction_blocks=.false.");
-    if (system_type == "local" && !removes_blocks)
-        throw std::runtime_error("Local SHM export requires remove_interaction_blocks=.true.");
-    std::size_t keep = 0;
-    std::string classification;
-    if (system_type == "gas") {
-        const auto nat = geometry.masses.size();
-        if (nat == 1) { keep = 0; classification = "atom"; }
-        else {
-            const auto inertia = inertia_eigenvalues(geometry);
-            const bool linear = std::any_of(inertia.begin(), inertia.end(), [](double value) { return value < 0.001; });
-            keep = 3*nat - (linear ? 5 : 6);
-            classification = linear ? "linear" : "nonlinear";
-        }
-    } else if (system_type == "local") {
-        const auto selected = integer_list(dataset.get("selected_atoms"));
-        if (selected.empty()) throw std::runtime_error("Local SHM export requires selected_atoms in fdvib.in.reference");
-        keep = 3*selected.size();
-        classification = "local";
-    } else throw std::runtime_error("Unknown system_type in fdvib.in.reference");
-
-    double largest_removed = 0.0;
-    const auto selected_frequencies = retain_largest_modes(modes, keep, largest_removed);
     double smallest_retained = 0.0;
-    if (!selected_frequencies.empty()) {
+    if (!selected.values.empty()) {
         smallest_retained = std::numeric_limits<double>::infinity();
-        for (const double frequency : selected_frequencies)
+        for (const double frequency : selected.values)
             smallest_retained = std::min(smallest_retained, std::abs(frequency));
     }
     std::vector<std::string> output_symbols;
@@ -223,7 +233,7 @@ void shm(const fs::path &results) {
     std::ostringstream output;
     output << "*E  //Electronic energy (a.u.)\n" << std::uppercase << std::scientific << std::setprecision(15) << energy << '\n'
            << "*wavenum  //Wavenumbers (cm-1). Negative value means imaginary frequency\n";
-    for (const double frequency : selected_frequencies) output << std::fixed << std::setprecision(10) << frequency << '\n';
+    for (const double frequency : selected.values) output << std::fixed << std::setprecision(10) << frequency << '\n';
     output << "*atoms  //Information of all atoms: Name, mass (amu), X, Y, Z (Angstrom)\n";
     for (std::size_t i = 0; i < geometry.symbols.size(); ++i)
         output << output_symbols[i] << ' ' << std::fixed << std::setprecision(10) << geometry.masses[i] << ' '
@@ -232,7 +242,7 @@ void shm(const fs::path &results) {
     output << "*elevel  //Energy (eV) and degeneracy of electronic energy levels\n"
            << "0.000000 " << multiplicity << '\n';
 
-    const auto destination = results / (dyns.front().stem().string() + ".shm");
+    const auto destination = results / (files.dyn.stem().string() + ".shm");
     const auto temporary = fs::path(destination.string() + ".tmp");
     if (fs::exists(destination)) throw std::runtime_error("Refuse to overwrite " + destination.string());
     if (fs::exists(temporary)) throw std::runtime_error("Stale SHM temporary file exists: " + temporary.string());
@@ -240,11 +250,11 @@ void shm(const fs::path &results) {
     validate_shm(temporary);
     fs::rename(temporary, destination);
     std::cout << "Wrote " << destination << "\n"
-              << "SHM mode selection: " << classification << ", retained " << selected_frequencies.size()
-              << ", removed " << modes.size()-selected_frequencies.size()
-              << ", largest removed |frequency|=" << largest_removed
+              << "SHM mode selection: " << selected.classification << ", retained " << selected.values.size()
+              << ", removed " << modes.size()-selected.values.size()
+              << ", largest removed |frequency|=" << selected.largest_removed
               << ", smallest retained |frequency|=" << smallest_retained << " cm^-1\n";
-    if (system_type == "local")
+    if (metadata.mode_selection == "local")
         std::cout << "Run Shermo with: Shermo " << destination << " -imode 1 -PGlabel C1\n";
     else
         std::cout << "Run Shermo with: Shermo " << destination << "\n";

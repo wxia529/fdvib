@@ -74,7 +74,6 @@ std::vector<Mode> gas_vibrational_modes(const std::vector<Mode> &modes,
 }
 
 void thermo(const fs::path &results, const fs::path &thermo_input) {
-    if (!fs::is_directory(results)) throw std::runtime_error("Not a result directory: " + results.string());
     const auto c=Config::load(thermo_input);
     c.require_only({"model", "temperature_k", "pressure_atm", "symmetry_number",
                     "electronic_degeneracy", "rotor_type", "low_frequency_model",
@@ -88,7 +87,7 @@ void thermo(const fs::path &results, const fs::path &thermo_input) {
     if(model=="gas_rrho"&&c.has("zero_tolerance_cm1"))
         throw std::runtime_error("gas_rrho must not contain zero_tolerance_cm1; rigid-body modes are excluded by molecular degrees of freedom");
     if (fs::exists(results/"dynmat.in")) {
-        const auto d=Config::load(results/"dynmat.in");
+        const auto d=Config::load_qe_namelist(results/"dynmat.in");
         const auto asr=lower(d.get("asr","no"));
         const auto remove=lower(d.get("remove_interaction_blocks",".false."));
         const bool removes_blocks=(remove==".true."||remove=="true"||remove=="t");
@@ -107,12 +106,9 @@ void thermo(const fs::path &results, const fs::path &thermo_input) {
     const double floor=c.real("frequency_floor_cm1",50),zt=c.real("zero_tolerance_cm1",1);
     if (zt < 0.0) throw std::runtime_error("zero_tolerance_cm1 must be non-negative");
     if (low=="frequency_floor" && floor <= 0.0) throw std::runtime_error("frequency_floor_cm1 must be positive");
-    std::vector<fs::path> dyns, freqs;
-    for(const auto&e:fs::directory_iterator(results)){const auto n=e.path().filename().string();if(n.size()>=5&&n.substr(n.size()-5)==".dynG")dyns.push_back(e.path());if(n.size()>=9&&n.substr(n.size()-9)==".freq.out")freqs.push_back(e.path());}
-    if(dyns.size()!=1||freqs.size()!=1) throw std::runtime_error("Result directory must contain exactly one .dynG and one .freq.out");
-    const auto &dyn=dyns.front(), &freq=freqs.front();
-    const auto g=read_dyn_geometry(dyn);
-    const auto modes=parse_modes(freq,static_cast<int>(g.masses.size()));
+    const auto files=result_files(results, "Thermochemistry");
+    const auto g=read_dyn_geometry(files.dyn);
+    const auto modes=parse_modes(files.freq,static_cast<int>(g.masses.size()));
     std::string type;
     std::array<double,3> I{};
     double mtot=0.0;
@@ -134,9 +130,9 @@ void thermo(const fs::path &results, const fs::path &thermo_input) {
     double hcorr=vib.u,stotal=vib.s,gcorr=vib.f,strans=0,srot=0,selec=0,htrans=0,urot=0;
     if(model=="gas_rrho"){
         if(!c.has("pressure_atm")||!c.has("symmetry_number")) throw std::runtime_error("gas_rrho requires explicit pressure_atm and symmetry_number");
-        const auto dataset=Config::load(results/"fdvib.in.reference");
-        if(lower(dataset.get("system_type"))!="gas") throw std::runtime_error("gas_rrho requires a gas fdvib.in.reference");
-        const double patm=c.real("pressure_atm",-1); const int sigma=c.integer("symmetry_number",0),mult=dataset.integer("multiplicity",0);
+        const auto metadata=result_metadata(results, true);
+        if(metadata.mode_selection!="gas") throw std::runtime_error("gas_rrho requires mode_selection=gas in metadata.dat");
+        const double patm=c.real("pressure_atm",-1); const int sigma=c.integer("symmetry_number",0),mult=metadata.multiplicity;
         if(patm<=0||sigma<=0||mult<=0) throw std::runtime_error("Gas pressure, symmetry, and multiplicity must be positive");
         const double qtrans=std::pow(2*PI*(mtot*AMU_KG)*KB_SI*T/(H_SI*H_SI),1.5)*(KB_SI*T/(patm*ATM_PA));
         strans=KB_EV*(std::log(qtrans)+2.5);htrans=2.5*KB_EV*T;

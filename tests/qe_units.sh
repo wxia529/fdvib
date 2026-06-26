@@ -33,16 +33,14 @@ run_case() {
   local name="$1"
   mkdir -p "$case_dir/$name"
   cat > "$case_dir/$name/fdvib.in" <<EOF
-&FDVIB
-  scf_input = 'scf.in'
-  outdir = 'fdvib'
-  system_type = 'local'
-  selected_atoms = 1
-  displacement_angstrom = 0.529177210544
-  pw_command = 'bash $case_dir/fake_pw.sh'
-  prefix = 'system'
-  run_dynmat = .false.
-/
+scf_input = scf.in
+outdir = fdvib
+system_type = local
+selected_atoms = 1
+displacement_angstrom = 0.529177210544
+pw_command = bash $case_dir/fake_pw.sh
+prefix = system
+run_dynmat = false
 EOF
   "$fdvib" -inp "$case_dir/$name/fdvib.in" > "$case_dir/$name/run.out"
 }

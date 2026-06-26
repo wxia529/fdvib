@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-26
+
+### Added
+
+- Add `results/metadata.dat` as compact result metadata for SHM export,
+  including `program`, `mode_selection`, electronic energy, multiplicity, and
+  selected atoms.
+- Add a forward-compatible SHM `program` metadata field. The interface defaults
+  to `qe`; other programs are rejected until readers are implemented.
+
+### Changed
+
+- Replace FDVIB and thermo namelist-style input files with strict key-value
+  files.
+- Make `fdvib shm` depend only on one `.dynG` file and one `.freq.out` file,
+  with optional `metadata.dat`.
+- Default SHM mode selection to `all`, writing all nonzero frequencies and
+  omitting only frequencies exactly equal to `0.0`.
+- Stop using `fdvib.in.reference`, `dynmat.in`, and `electronic_structure.dat`
+  as SHM export inputs.
+- Stop publishing `fdvib.in.reference` and `electronic_structure.dat` in
+  `results/`; `metadata.dat` is the result-level metadata interface.
+- Run the release-package test suite inside the manylinux build workflow
+  before creating a GitHub release.
+
+### Fixed
+
+- Harden QE input and dynG parsing against truncated files, non-positive atom
+  counts, invalid type indices, and non-finite coordinates.
+- Report the concrete `.dynG` and `.freq.out` files found when result
+  directories do not contain exactly one of each.
+
 ## [0.3.4] - 2026-06-25
 
 ### Added

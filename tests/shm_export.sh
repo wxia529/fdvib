@@ -20,20 +20,11 @@ Basis vectors
     3    2  0.2200000000 0.0000000000 0.0000000000
 EOF
 
-cat > "$case_dir/fdvib.in.reference" <<'EOF'
-system_type = 'gas'
-selected_atoms = 'all'
-multiplicity = 1
-EOF
-
-cat > "$case_dir/electronic_structure.dat" <<'EOF'
+cat > "$case_dir/metadata.dat" <<'EOF'
+program = qe
+mode_selection = gas
 electronic_energy_hartree = -76.000000000000000
 multiplicity = 1
-source = 'scf.out'
-EOF
-cat > "$case_dir/dynmat.in" <<'EOF'
-asr = 'no'
-remove_interaction_blocks = .false.
 EOF
 
 append_mode() {
@@ -47,7 +38,7 @@ append_mode 1 -25.66
 append_mode 2 -16.95
 append_mode 3 -6.30
 append_mode 4 -0.77
-append_mode 5 0.42
+append_mode 5 0.0
 append_mode 6 630.07
 append_mode 7 641.78
 append_mode 8 1326.44
@@ -71,12 +62,44 @@ if "$fdvib" shm "$case_dir" > /dev/null 2> "$case_dir/error"; then
 fi
 grep -q 'Refuse to overwrite' "$case_dir/error"
 
-sed -i "s/asr = 'no'/asr = 'zero-dim'/" "$case_dir/dynmat.in"
+rm "$case_dir/co2.shm"
+sed -i 's/program = qe/program = vasp/' "$case_dir/metadata.dat"
 if "$fdvib" shm "$case_dir" > /dev/null 2> "$case_dir/error"; then
-  echo "SHM export unexpectedly accepted asr='zero-dim'" >&2
+  echo "SHM export unexpectedly accepted unsupported program" >&2
   exit 1
 fi
-grep -q "requires asr='no'" "$case_dir/error"
+grep -q 'Unsupported program in metadata.dat: vasp' "$case_dir/error"
+sed -i 's/program = vasp/program = qe/' "$case_dir/metadata.dat"
+
+sed -i 's/mode_selection = gas/mode_selection = unknown/' "$case_dir/metadata.dat"
+if "$fdvib" shm "$case_dir" > /dev/null 2> "$case_dir/error"; then
+  echo "SHM export unexpectedly accepted invalid mode_selection" >&2
+  exit 1
+fi
+grep -q 'mode_selection must be all, gas, or local in metadata.dat' "$case_dir/error"
+sed -i 's/mode_selection = unknown/mode_selection = gas/' "$case_dir/metadata.dat"
+
+rm "$case_dir/metadata.dat"
+"$fdvib" shm "$case_dir" > "$case_dir/default-shm.out"
+grep -q 'SHM mode selection: all, retained 8, removed 1' "$case_dir/default-shm.out"
+grep -q '^0.000000000000000E+00$' "$case_dir/co2.shm"
+awk '/^\*wavenum/{inside=1;next}/^\*atoms/{inside=0}inside{print}' "$case_dir/co2.shm" > "$case_dir/default-frequencies"
+test "$(wc -l < "$case_dir/default-frequencies")" -eq 8
+if grep -qx '0.0000000000' "$case_dir/default-frequencies"; then
+  echo "SHM export unexpectedly kept an exact zero frequency in all mode" >&2
+  exit 1
+fi
+rm "$case_dir/co2.shm"
+cat > "$case_dir/metadata.dat" <<'EOF'
+program = qe
+mode_selection = local
+selected_atoms = 1,1
+EOF
+if "$fdvib" shm "$case_dir" > /dev/null 2> "$case_dir/error"; then
+  echo "SHM export unexpectedly accepted duplicate selected_atoms" >&2
+  exit 1
+fi
+grep -q 'Invalid/duplicate selected atom in metadata.dat' "$case_dir/error"
 
 atom_dir="$case_dir/atom"
 mkdir -p "$atom_dir"
@@ -91,19 +114,11 @@ Basis vectors
   1 'He     ' 3647.7423100000
     1    1 0.0000000000 0.0000000000 0.0000000000
 EOF
-cat > "$atom_dir/fdvib.in.reference" <<'EOF'
-system_type = 'gas'
-selected_atoms = 'all'
-multiplicity = 1
-EOF
-cat > "$atom_dir/electronic_structure.dat" <<'EOF'
+cat > "$atom_dir/metadata.dat" <<'EOF'
+program = qe
+mode_selection = gas
 electronic_energy_hartree = -2.9
 multiplicity = 1
-source = 'scf.out'
-EOF
-cat > "$atom_dir/dynmat.in" <<'EOF'
-asr = 'no'
-remove_interaction_blocks = .false.
 EOF
 : > "$atom_dir/he.freq.out"
 for index in 1 2 3; do

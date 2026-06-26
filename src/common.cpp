@@ -64,20 +64,36 @@ std::string read_text(const fs::path &p) {
 }
 
 void write_text(const fs::path &p, const std::string &s) {
-    fs::create_directories(p.parent_path());
+    if (!p.parent_path().empty()) fs::create_directories(p.parent_path());
     std::ofstream f(p, std::ios::binary);
     if (!f) throw std::runtime_error("Cannot write " + p.string());
     f << s;
     if (!f) throw std::runtime_error("Write failed: " + p.string());
 }
 
-Config Config::load(const fs::path &p) {
+namespace {
+
+std::string strip_key_value_comment(const std::string &line) {
+    bool single = false, dbl = false;
+    for (std::size_t i = 0; i < line.size(); ++i) {
+        if (line[i] == '\'' && !dbl) single = !single;
+        else if (line[i] == '"' && !single) dbl = !dbl;
+        else if ((line[i] == '!' || line[i] == '#') && !single && !dbl) return line.substr(0, i);
+    }
+    return line;
+}
+
+Config load_config_impl(const fs::path &p, bool allow_namelist) {
     Config c;
     std::istringstream in(read_text(p));
     std::string line;
     while (std::getline(in, line)) {
-        line = trim(strip_comment(line));
-        if (line.empty() || line.front() == '&' || line == "/") continue;
+        line = trim(allow_namelist ? strip_comment(line) : strip_key_value_comment(line));
+        if (line.empty()) continue;
+        if (line.front() == '&' || line == "/") {
+            if (allow_namelist) continue;
+            throw std::runtime_error("Namelist syntax is not accepted in " + p.string() + ": " + line);
+        }
         const auto eq = line.find('=');
         if (eq == std::string::npos) throw std::runtime_error("Malformed assignment in " + p.string() + ": " + line);
         auto key = lower(trim(line.substr(0, eq)));
@@ -88,6 +104,16 @@ Config Config::load(const fs::path &p) {
         c.v.emplace(std::move(key), trim(val));
     }
     return c;
+}
+
+} // namespace
+
+Config Config::load(const fs::path &p) {
+    return load_config_impl(p, false);
+}
+
+Config Config::load_qe_namelist(const fs::path &p) {
+    return load_config_impl(p, true);
 }
 
 bool Config::has(const std::string &k) const { return v.count(lower(k)) != 0; }

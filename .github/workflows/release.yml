@@ -39,8 +39,10 @@ jobs:
               rm -rf build-manylinux dist
               cmake -S . -B build-manylinux \
                 -DCMAKE_BUILD_TYPE=Release \
+                -DBUILD_TESTING=ON \
                 -DCMAKE_EXE_LINKER_FLAGS="-static-libstdc++ -static-libgcc"
               cmake --build build-manylinux --parallel
+              ctest --test-dir build-manylinux --output-on-failure
 
               reported_version="$(./build-manylinux/fdvib --version)"
               if [[ "$reported_version" != "fdvib $VERSION" ]]; then

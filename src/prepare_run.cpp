@@ -204,12 +204,17 @@ double read_total_energy_hartree(const fs::path &output) {
     return energy_ry / 2.0;
 }
 
-std::string electronic_structure_text(const Settings &s, const fs::path &output) {
+std::string metadata_text(const Settings &s, const fs::path &output) {
     std::ostringstream data;
-    data << "electronic_energy_hartree=" << std::scientific << std::setprecision(16)
+    data << "program = qe\n"
+         << "electronic_energy_hartree = " << std::scientific << std::setprecision(16)
          << read_total_energy_hartree(output) << "\n"
-         << "multiplicity=" << s.multiplicity << "\n"
-         << "source='" << output.filename().string() << "'\n";
+         << "multiplicity = " << s.multiplicity << "\n"
+         << "mode_selection = " << s.system_type << "\n"
+         << "selected_atoms = ";
+    if (s.selected_all) data << "all";
+    else for (std::size_t i = 0; i < s.selected.size(); ++i) data << (i ? "," : "") << s.selected[i];
+    data << "\n";
     return data.str();
 }
 
@@ -273,13 +278,13 @@ void initialize_dataset(const Settings &s, const QEInput &q,
         throw std::runtime_error("scf.in differs from the existing calculation");
     const auto config_reference = s.workdir / "fdvib.in.reference";
     std::ostringstream cfg;
-    cfg << "&FDVIB\n  scf_input='scf.in',\n  outdir='fdvib',\n"
-        << "  system_type='" << s.system_type << "',\n  selected_atoms='";
+    cfg << "scf_input = scf.in\noutdir = fdvib\n"
+        << "system_type = " << s.system_type << "\nselected_atoms = ";
     if (s.selected_all) cfg << "all";
     else for (std::size_t i = 0; i < selected.size(); ++i) cfg << (i ? "," : "") << selected[i];
-    cfg << "',\n  displacement_angstrom=" << std::setprecision(17) << s.displacement << ",\n"
-        << "  multiplicity=" << s.multiplicity << ",\n  prefix='" << s.output_prefix << "',\n"
-        << "  pw_command='pw.x',\n  run_dynmat=.false.,\n  dynmat_command='dynmat.x',\n/\n";
+    cfg << "\ndisplacement_angstrom = " << std::setprecision(17) << s.displacement << "\n"
+        << "multiplicity = " << s.multiplicity << "\nprefix = " << s.output_prefix << "\n"
+        << "pw_command = pw.x\nrun_dynmat = false\ndynmat_command = dynmat.x\n";
     if (!fs::exists(config_reference)) write_text(config_reference, cfg.str());
     else if (read_text(config_reference) != cfg.str())
         throw std::runtime_error("FDVIB dataset snapshot is missing or modified: " + config_reference.string());
@@ -314,10 +319,10 @@ ReferenceSeed ensure_reference(const Settings &s, const QEInput &q) {
                    file_digest(paw) != paw_digest) {
             throw std::runtime_error("Completed reference PAW data is missing or modified: " + paw.string());
         }
-        const auto electronic = s.workdir / "electronic_structure.dat";
-        const auto wanted_electronic = electronic_structure_text(s, attempt / "scf.out");
-        if (!fs::is_regular_file(electronic) || read_text(electronic) != wanted_electronic)
-            throw std::runtime_error("Reference electronic-structure metadata is missing or modified: " + electronic.string());
+        const auto metadata = s.workdir / "metadata.dat";
+        const auto wanted_metadata = metadata_text(s, attempt / "scf.out");
+        if (!fs::is_regular_file(metadata) || read_text(metadata) != wanted_metadata)
+            throw std::runtime_error("Reference metadata is missing or modified: " + metadata.string());
         std::cout << "Preserved completed reference SCF\n";
         return {density, paw_name == "paw.txt" ? paw : fs::path{}, density_digest,
                 paw_name == "paw.txt" ? paw_digest : std::string{}};
@@ -330,7 +335,7 @@ ReferenceSeed ensure_reference(const Settings &s, const QEInput &q) {
         const auto paw = density.parent_path() / "paw.txt";
         if (fs::exists(paw) && (!fs::is_regular_file(paw) || fs::file_size(paw) == 0))
             throw std::runtime_error("Reference PAW data is not a non-empty regular file: " + paw.string());
-        write_text(s.workdir / "electronic_structure.dat", electronic_structure_text(s, output));
+        write_text(s.workdir / "metadata.dat", metadata_text(s, output));
         const bool has_paw = fs::is_regular_file(paw);
         const auto density_digest = file_digest(density);
         const auto paw_digest = has_paw ? file_digest(paw) : std::string{};
@@ -429,17 +434,16 @@ void ensure_analysis(const Settings &s) {
     const auto marker = s.workdir / "state" / "analyze.complete";
     const auto results = s.workdir / "results";
     const auto dyn = results / (s.output_prefix + ".dynG");
-    const auto result_config = results / "fdvib.in.reference";
-    const auto result_electronic = results / "electronic_structure.dat";
+    const auto result_metadata = results / "metadata.dat";
     if (fs::exists(marker)) {
         if (!fs::is_regular_file(dyn) || !fs::is_regular_file(results / "dynmat.in"))
             throw std::runtime_error("Completed Hessian results are missing");
         std::istringstream in(read_text(marker));
-        std::string dyn_digest, input_digest, config_digest, electronic_digest;
-        in >> dyn_digest >> input_digest >> config_digest >> electronic_digest;
+        std::string dyn_digest, input_digest, metadata_digest, extra;
+        if (!(in >> dyn_digest >> input_digest >> metadata_digest) || in >> extra)
+            throw std::runtime_error("Invalid Hessian completion snapshot: " + marker.string());
         if (file_digest(dyn) != dyn_digest || file_digest(results / "dynmat.in") != input_digest ||
-            !fs::is_regular_file(result_config) || file_digest(result_config) != config_digest ||
-            !fs::is_regular_file(result_electronic) || file_digest(result_electronic) != electronic_digest)
+            !fs::is_regular_file(result_metadata) || file_digest(result_metadata) != metadata_digest)
             throw std::runtime_error("Completed Hessian results were modified");
         std::cout << "Preserved completed Hessian analysis\n";
         return;
@@ -447,18 +451,16 @@ void ensure_analysis(const Settings &s) {
     if (fs::exists(results)) {
         bool recovered = false;
         if (fs::is_regular_file(dyn) && fs::is_regular_file(results / "dynmat.in") &&
-            fs::is_regular_file(result_config) && fs::is_regular_file(result_electronic)) {
+            fs::is_regular_file(result_metadata)) {
             try {
                 (void)read_dyn_geometry(dyn);
-                const auto input = Config::load(results / "dynmat.in");
+                const auto input = Config::load_qe_namelist(results / "dynmat.in");
                 if (input.get("fildyn") != dyn.filename().string())
                     throw std::runtime_error("dynmat.in references a different dynamical matrix");
-                if (read_text(result_config) != read_text(s.workdir / "fdvib.in.reference"))
-                    throw std::runtime_error("Result dataset snapshot differs");
-                if (read_text(result_electronic) != read_text(s.workdir / "electronic_structure.dat"))
-                    throw std::runtime_error("Result electronic-structure metadata differs");
+                if (read_text(result_metadata) != read_text(s.workdir / "metadata.dat"))
+                    throw std::runtime_error("Result metadata differs");
                 write_text(marker, file_digest(dyn) + " " + file_digest(results / "dynmat.in") +
-                                   " " + file_digest(result_config) + " " + file_digest(result_electronic) + "\n");
+                                   " " + file_digest(result_metadata) + "\n");
                 std::cout << "Recovered completed Hessian analysis\n";
                 recovered = true;
             } catch (const std::exception &) {
@@ -473,7 +475,7 @@ void ensure_analysis(const Settings &s) {
     }
     analyze(s);
     write_text(marker, file_digest(dyn) + " " + file_digest(results / "dynmat.in") +
-                       " " + file_digest(result_config) + " " + file_digest(result_electronic) + "\n");
+                       " " + file_digest(result_metadata) + "\n");
 }
 
 void ensure_dynmat(const Settings &s) {

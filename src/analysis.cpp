@@ -45,6 +45,7 @@ void write_dynG(const fs::path &p, const QEInput &q, const std::vector<double> &
 }
 
 std::vector<Mode> parse_modes(const fs::path &p, int nat) {
+    if (nat <= 0) throw std::runtime_error("Invalid atom count while parsing modes: " + p.string());
     std::ifstream in(p);
     if (!in) throw std::runtime_error("Cannot read " + p.string());
     std::regex fr(R"(freq\s*\(\s*\d+\s*\)\s*=\s*[-+0-9.EeDd]+\s*\[THz\]\s*=\s*([-+0-9.EeDd]+)\s*\[cm-1\])", std::regex::icase);
@@ -100,17 +101,9 @@ void analyze(const Settings &s) {
     }
     const auto results=s.workdir/"results"; fs::create_directories(results);
     const auto dyn=results/(s.output_prefix+".dynG");
-    for (const auto &p : {dyn, results/"dynmat.in", results/"electronic_structure.dat"})
+    for (const auto &p : {dyn, results/"dynmat.in", results/"metadata.dat"})
         if (fs::exists(p)) throw std::runtime_error("Refuse to overwrite " + p.string());
-    const auto dataset_config = s.workdir / "fdvib.in.reference";
-    const auto result_config = results / "fdvib.in.reference";
-    if (fs::exists(result_config)) {
-        if (read_text(result_config) != read_text(dataset_config))
-            throw std::runtime_error("Result configuration snapshot differs: " + result_config.string());
-    } else {
-        fs::copy_file(dataset_config, result_config);
-    }
-    fs::copy_file(s.workdir / "electronic_structure.dat", results / "electronic_structure.dat");
+    fs::copy_file(s.workdir / "metadata.dat", results / "metadata.dat");
     write_dynG(dyn,q,h);
     std::ostringstream di;
     di << "&INPUT\n  fildyn='" << dyn.filename().string() << "',\n  filout='" << s.output_prefix << ".freq.out',\n"
@@ -123,14 +116,18 @@ void analyze(const Settings &s) {
 
 DynGeometry read_dyn_geometry(const fs::path &p) {
     std::ifstream in(p); if(!in) throw std::runtime_error("Cannot read "+p.string());
-    std::string line; std::getline(in,line); std::getline(in,line); std::getline(in,line);
+    std::string line;
+    for (int i = 0; i < 3; ++i)
+        if (!std::getline(in, line)) throw std::runtime_error("Incomplete dynG header: " + p.string());
     std::istringstream hs(line); int ntyp,nat,ibrav; double alat; hs>>ntyp>>nat>>ibrav>>alat;
-    if(!hs||ibrav!=0) throw std::runtime_error("Unsupported dynG header");
-    std::getline(in,line); for(int i=0;i<3;++i) std::getline(in,line);
+    if(!hs||ibrav!=0||ntyp<=0||nat<=0||!(alat>0.0)) throw std::runtime_error("Unsupported dynG header");
+    if (!std::getline(in,line)) throw std::runtime_error("Incomplete dynG basis section: " + p.string());
+    for(int i=0;i<3;++i)
+        if (!std::getline(in,line)) throw std::runtime_error("Incomplete dynG basis vectors: " + p.string());
     std::vector<double> tmass(ntyp); std::vector<std::string> tsymbol(ntyp);
     const std::regex quoted(R"('([^']*)')");
     for(int i=0;i<ntyp;++i){
-        std::getline(in,line);
+        if (!std::getline(in,line)) throw std::runtime_error("Incomplete dynG species block: " + p.string());
         std::smatch match;
         if (!std::regex_search(line, match, quoted)) throw std::runtime_error("Bad species symbol in dynG");
         tsymbol[i]=trim(match[1]);
@@ -140,7 +137,13 @@ DynGeometry read_dyn_geometry(const fs::path &p) {
         tmass[i]=number(last)/AMU_RY;
     }
     DynGeometry g; g.masses.resize(nat); g.r_bohr.resize(nat); g.symbols.resize(nat);
-    for(int i=0;i<nat;++i){ std::getline(in,line); std::istringstream ls(line); int n,t; Vec3 x; ls>>n>>t>>x[0]>>x[1]>>x[2]; g.masses[i]=tmass.at(t-1);g.symbols[i]=tsymbol.at(t-1);for(int k=0;k<3;++k)g.r_bohr[i][k]=x[k]*alat; }
+    for(int i=0;i<nat;++i){
+        if (!std::getline(in,line)) throw std::runtime_error("Incomplete dynG atom block: " + p.string());
+        std::istringstream ls(line); int n,t; Vec3 x; ls>>n>>t>>x[0]>>x[1]>>x[2];
+        if(!ls||n!=i+1||t<1||t>ntyp||!std::isfinite(x[0])||!std::isfinite(x[1])||!std::isfinite(x[2]))
+            throw std::runtime_error("Bad atom row in dynG: " + p.string());
+        g.masses[i]=tmass.at(t-1);g.symbols[i]=tsymbol.at(t-1);for(int k=0;k<3;++k)g.r_bohr[i][k]=x[k]*alat;
+    }
     return g;
 }
 
@@ -168,14 +171,10 @@ void write_compact_molden(const fs::path &p, const DynGeometry &g,
 }
 
 void modes(const fs::path &results) {
-    if (!fs::is_directory(results)) throw std::runtime_error("Not a result directory: " + results.string());
-    std::vector<fs::path> dyns, freqs;
-    for(const auto&e:fs::directory_iterator(results)){const auto n=e.path().filename().string();if(n.size()>=5&&n.substr(n.size()-5)==".dynG")dyns.push_back(e.path());if(n.size()>=9&&n.substr(n.size()-9)==".freq.out")freqs.push_back(e.path());}
-    if(dyns.size()!=1||freqs.size()!=1) throw std::runtime_error("Result directory must contain exactly one .dynG and one .freq.out");
-    const auto &dyn=dyns.front(), &freq=freqs.front();
-    const auto g=read_dyn_geometry(dyn);
-    const auto parsed=parse_modes(freq,static_cast<int>(g.masses.size()));
-    const auto mold=results/(dyn.stem().string()+".mold");
+    const auto files = result_files(results, "Normal-mode analysis");
+    const auto g=read_dyn_geometry(files.dyn);
+    const auto parsed=parse_modes(files.freq,static_cast<int>(g.masses.size()));
+    const auto mold=results/(files.dyn.stem().string()+".mold");
     if(fs::exists(mold)) throw std::runtime_error("Refuse to overwrite "+mold.string());
     write_compact_molden(mold,g,parsed,1.0e-6);
 }

@@ -1,12 +1,10 @@
-&FDVIB
-  scf_input               = 'scf.in',
-  outdir                  = 'fdvib',
-  system_type             = 'gas',
-  selected_atoms          = 'all',
-  displacement_angstrom   = 0.01,
-  multiplicity            = 1,
-  pw_command              = 'mpirun -np 8 pw.x',
-  prefix                  = 'molecule',
-  run_dynmat              = .true.,
-  dynmat_command          = 'dynmat.x',
-/
+scf_input = scf.in
+outdir = fdvib
+system_type = gas
+selected_atoms = all
+displacement_angstrom = 0.01
+multiplicity = 1
+pw_command = mpirun -np 8 pw.x
+prefix = molecule
+run_dynmat = true
+dynmat_command = dynmat.x

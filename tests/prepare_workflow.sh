@@ -11,7 +11,7 @@ cat > "$case_dir/scf.in" <<'EOF'
   tprnfor = .true.
   prefix = 'seedtest'
   outdir = './out'
-  pseudo_dir = '~/pseudo'
+  pseudo_dir = '~/pseudo#hash'
   disk_io = 'high'
 /
 &SYSTEM
@@ -33,17 +33,15 @@ CELL_PARAMETERS angstrom
 EOF
 
 cat > "$case_dir/fdvib.in" <<'EOF'
-&FDVIB
-  scf_input = 'scf.in'
-  outdir = 'fdvib'
-  system_type = 'local'
-  selected_atoms = 1
-  displacement_angstrom = 0.01
-  pw_command = 'bash @FAKE_PW@'
-  prefix = 'system'
-  run_dynmat = .false.
-  dynmat_command = 'bash @FAKE_DYNMAT@'
-/
+scf_input = scf.in
+outdir = fdvib
+system_type = local
+selected_atoms = 1
+displacement_angstrom = 0.01
+pw_command = bash @FAKE_PW@
+prefix = system
+run_dynmat = false
+dynmat_command = bash @FAKE_DYNMAT@
 EOF
 
 cat > "$case_dir/fake_pw.sh" <<'EOF'
@@ -96,14 +94,25 @@ if "$fdvib" -in "$case_dir/fdvib.in" > /dev/null 2> "$case_dir/error"; then
 fi
 grep -q 'fdvib -inp fdvib.in' "$case_dir/error"
 
+cat > "$case_dir/old-style.in" <<'EOF'
+&FDVIB
+  scf_input = 'scf.in'
+/
+EOF
+if "$fdvib" -inp "$case_dir/old-style.in" > /dev/null 2> "$case_dir/error"; then
+  echo "FDVIB unexpectedly accepted namelist fdvib.in syntax" >&2
+  exit 1
+fi
+grep -q 'Namelist syntax is not accepted' "$case_dir/error"
+
 "$fdvib" -inp "$case_dir/fdvib.in" > "$case_dir/run.out"
 grep -q '^Running unperturbed reference SCF$' "$case_dir/run.out"
 grep -q '^Completed 6, preserved 0 displacement jobs$' "$case_dir/run.out"
 grep -q "dynmat.x was not requested" "$case_dir/run.out"
 test "$(find "$case_dir/fdvib/calculations" -maxdepth 2 -name pw.in | wc -l)" -eq 6
 test "$(grep -Ril "outdir[[:space:]]*=[[:space:]]*'./out'" "$case_dir/fdvib/calculations" --include='*.in' | wc -l)" -eq 7
-grep -q "pseudo_dir = '$HOME/pseudo'" "$case_dir/fdvib/calculations/init_scf_001/scf.in"
-grep -q "pseudo_dir = '$HOME/pseudo'" "$case_dir/fdvib/calculations/disp_0001_x_p_001/pw.in"
+grep -q "pseudo_dir = '$HOME/pseudo#hash'" "$case_dir/fdvib/calculations/init_scf_001/scf.in"
+grep -q "pseudo_dir = '$HOME/pseudo#hash'" "$case_dir/fdvib/calculations/disp_0001_x_p_001/pw.in"
 test "$(grep -Ril "startingpot[[:space:]]*=[[:space:]]*'file'" "$case_dir/fdvib/calculations" --include=pw.in | wc -l)" -eq 6
 test "$(grep -Ril "disk_io[[:space:]]*=[[:space:]]*'nowf'" "$case_dir/fdvib/calculations" --include=pw.in | wc -l)" -eq 6
 grep -q "disk_io = 'high'" "$case_dir/fdvib/calculations/init_scf_001/scf.in"
@@ -116,13 +125,18 @@ if grep -qi "startingpot[[:space:]]*=[[:space:]]*['\"]file['\"]" "$case_dir/fdvi
   exit 1
 fi
 test -s "$case_dir/fdvib/results/system.dynG"
+test -s "$case_dir/fdvib/results/metadata.dat"
+grep -q '^program = qe$' "$case_dir/fdvib/results/metadata.dat"
+grep -q '^mode_selection = local$' "$case_dir/fdvib/results/metadata.dat"
+test ! -e "$case_dir/fdvib/results/fdvib.in.reference"
+test ! -e "$case_dir/fdvib/results/electronic_structure.dat"
 test ! -e "$case_dir/fdvib/results/system.freq.out"
 
 mkdir "$case_dir/no-disk-io"
 cp "$case_dir/scf.in" "$case_dir/no-disk-io/scf.in"
 cp "$case_dir/fdvib.in" "$case_dir/no-disk-io/fdvib.in"
 sed -i '/disk_io/d' "$case_dir/no-disk-io/scf.in"
-sed -i 's|~/pseudo|./pseudo|' "$case_dir/no-disk-io/scf.in"
+sed -i 's|~/pseudo#hash|./pseudo|' "$case_dir/no-disk-io/scf.in"
 "$fdvib" -inp "$case_dir/no-disk-io/fdvib.in" > "$case_dir/no-disk-io/run.out"
 test "$(grep -Ril "disk_io[[:space:]]*=[[:space:]]*'nowf'" "$case_dir/no-disk-io/fdvib/calculations" --include=pw.in | wc -l)" -eq 6
 grep -q "pseudo_dir = '../../../pseudo'" "$case_dir/no-disk-io/fdvib/calculations/disp_0001_x_p_001/pw.in"
@@ -131,7 +145,7 @@ if grep -qi 'disk_io' "$case_dir/no-disk-io/fdvib/calculations/init_scf_001/scf.
   exit 1
 fi
 
-sed -i 's/run_dynmat = .false./run_dynmat = .true./' "$case_dir/fdvib.in"
+sed -i 's/run_dynmat = false/run_dynmat = true/' "$case_dir/fdvib.in"
 "$fdvib" -inp "$case_dir/fdvib.in" > "$case_dir/restart.out"
 grep -q '^Preserved completed reference SCF$' "$case_dir/restart.out"
 grep -q '^Completed 0, preserved 6 displacement jobs$' "$case_dir/restart.out"
@@ -151,7 +165,7 @@ grep -q '^Recovered completed disp_0001_x_m from disp_0001_x_m_001$' "$case_dir/
 test ! -e "$case_dir/fdvib/calculations/disp_0001_x_m_002"
 
 rm "$case_dir/fdvib/state/init_scf.complete"
-rm "$case_dir/fdvib/electronic_structure.dat"
+rm "$case_dir/fdvib/metadata.dat"
 "$fdvib" -inp "$case_dir/fdvib.in" > "$case_dir/recover-init.out"
 grep -q '^Recovered completed initial SCF from init_scf_001$' "$case_dir/recover-init.out"
 test ! -e "$case_dir/fdvib/calculations/init_scf_002"

@@ -36,6 +36,7 @@ struct Config {
     std::map<std::string, std::string> v;
 
     static Config load(const fs::path &p);
+    static Config load_qe_namelist(const fs::path &p);
     bool has(const std::string &k) const;
     std::string get(const std::string &k, const std::string &d = {}) const;
     double real(const std::string &k, double d) const;
@@ -86,6 +87,23 @@ struct Settings {
 
 Settings settings(const fs::path &config_path, const fs::path &root_override = {});
 std::string job_name(int atom1, int axis, int sign);
+
+struct ResultMetadata {
+    std::string program{"qe"};
+    double electronic_energy_hartree{};
+    int multiplicity{1};
+    std::string mode_selection{"all"};
+    std::string selected_atoms{"all"};
+};
+
+ResultMetadata result_metadata(const fs::path &results, bool required);
+
+struct ResultFiles {
+    fs::path dyn;
+    fs::path freq;
+};
+
+ResultFiles result_files(const fs::path &results, const std::string &context);
 
 struct Mode { double freq{}; std::vector<Vec3> displacement; };
 struct DynGeometry {

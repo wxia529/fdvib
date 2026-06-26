@@ -1,11 +1,9 @@
-&FDVIB
-  scf_input               = 'scf.in',
-  outdir                  = 'fdvib',
-  system_type             = 'local',
-  selected_atoms          = 65, 66, 67,
-  displacement_angstrom   = 0.01,
-  pw_command              = 'mpirun -np 8 pw.x',
-  prefix                  = 'system',
-  run_dynmat              = .true.,
-  dynmat_command          = 'dynmat.x',
-/
+scf_input = scf.in
+outdir = fdvib
+system_type = local
+selected_atoms = 65,66,67
+displacement_angstrom = 0.01
+pw_command = mpirun -np 8 pw.x
+prefix = system
+run_dynmat = true
+dynmat_command = dynmat.x
