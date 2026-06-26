@@ -11,8 +11,8 @@ FDVIB supports:
   periodic system;
 - isolated-molecule rigid-rotor harmonic-oscillator (RRHO) thermochemistry;
 - compact Molden output for normal-mode visualization;
-- Gaussian-like fake output for loading FDVIB modes in GaussView;
-- Shermo 2.6.2-compatible `.shm` export;
+- GaussView vibration export for loading FDVIB modes visually;
+- Shermo-compatible `.shm` export;
 - harmonic and frequency-floor treatments of low positive frequencies.
 
 It is not a replacement for `ph.x`, `q2r.x`, Phonopy, or full periodic phonon
@@ -65,8 +65,8 @@ The QE input must use `ibrav=0` and explicit supported units on
 `calculation='scf'`, `tprnfor=.true.`, and an `outdir`. Do not set
 `startingpot='file'`: FDVIB
 runs one unperturbed reference SCF and seeds every displaced calculation from
-its converged charge density. Both non-HDF5 QE `charge-density.dat` and HDF5
-`charge-density.hdf5` outputs are supported.
+its converged charge density. FDVIB detects the charge-density representation
+written by the installed QE build.
 
 Configuration templates are available in [`examples/local`](examples/local)
 and [`examples/gas`](examples/gas). Gas calculations require

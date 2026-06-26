@@ -138,7 +138,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `electronic_structure.dat` metadata.
 - Add optional automatic `dynmat.x` execution controlled by `run_dynmat` and
   `dynmat_command`.
-- Add `fdvib shm RESULTS_DIR` for validated Shermo 2.6.2-compatible `.shm`
+- Add `fdvib shm RESULTS_DIR` for validated Shermo-compatible `.shm`
   export. Gas exports remove 3, 5, or 6 rigid modes according to molecular
   degrees of freedom, preserve separately calculated components of split
   degenerate vibrations, and retain remaining internal imaginary modes.

@@ -42,16 +42,18 @@ file as complete merely because it exists.
 
 ## Project files
 
-A new calculation starts with:
+A typical user working directory starts with:
 
 ```text
-calculation/
+case_directory/
 |-- scf.in
 |-- fdvib.in
 `-- thermo.in       optional, used only by the separate thermo command
 ```
 
-`scf.in` stays external; it is not embedded in `fdvib.in`.
+`scf.in` stays external; it is not embedded in `fdvib.in`. During execution
+FDVIB creates its own `fdvib/calculations/` subdirectory for generated QE
+attempts; that internal name is separate from the user's working directory.
 
 ## QE input requirements
 
@@ -97,14 +99,11 @@ default atomic superposition). FDVIB injects `startingpot='file'` only into
 the generated displaced inputs.
 
 Every displaced calculation has an independent QE `outdir`. Before execution,
-FDVIB copies the reference `charge-density.dat` or `charge-density.hdf5` into
-that calculation's `<qe-prefix>.save` directory. The former is produced by QE builds
-without HDF5 support; FDVIB discovers and snapshots either representation
-automatically. Tasks never share a writable QE
-scratch directory.
-FDVIB also inserts or replaces `disk_io='nowf'` in displaced inputs to avoid
-storing wavefunction files that are not needed for finite-difference forces.
-The initial SCF retains the user's `disk_io` policy.
+FDVIB copies the converged reference charge density into that calculation's
+`<qe-prefix>.save` directory and verifies the copied data. Tasks never share a
+writable QE scratch directory. FDVIB also inserts or replaces `disk_io='nowf'`
+in displaced inputs to avoid storing wavefunction files that are not needed for
+finite-difference forces. The initial SCF retains the user's `disk_io` policy.
 
 The original `scf.in` should be tested independently. Tight electronic
 convergence is important because force noise directly affects frequencies.
@@ -140,10 +139,10 @@ run_dynmat = true
 dynmat_command = dynmat.x
 ```
 
-The parser accepts one `key = value` assignment per line, ignores `#` and `!`
-comments, and rejects unknown parameters, duplicate parameters, and namelist
-syntax such as `&FDVIB ... /`. Values may be quoted, but quotes are not
-required.
+`fdvib.in` is a plain key-value file, not a QE-style namelist. Write one
+`key = value` assignment per line. The parser ignores `#` and `!` comments and
+rejects unknown or duplicate parameters. Values may be quoted, but quotes are
+not required.
 
 | Parameter | Meaning |
 |---|---|
@@ -206,15 +205,14 @@ A failed or interrupted calculation remains available for diagnosis. The next
 calculation invocation creates a fresh numbered directory and seeds it from the immutable
 reference density again.
 
-Every generated `scf.in` or `pw.in` uses `outdir='./out'`, and FDVIB starts QE
-inside that input's calculation directory. Relative `pseudo_dir` values are
-rewritten relative to that directory; `~`, `$HOME`, and `${HOME}` forms are
-expanded to an absolute home-directory path. An explicit `wfcdir` is redirected to
-the same isolated `./out`. Consequently, users can enter a calculation directory
-and run its input directly with `pw.x -inp pw.in` for diagnosis without editing
-paths. A completed directory is an immutable snapshot: copy it before manual
-experiments. FDVIB may directly recover a valid manually completed,
-not-yet-committed directory on the next invocation.
+Generated `scf.in` and `pw.in` files are self-contained for diagnosis: FDVIB
+starts QE inside each attempt directory, uses `outdir='./out'`, rewrites
+relative `pseudo_dir` paths for that location, and redirects `wfcdir` to the
+same isolated `./out`. Users can enter an attempt directory and run
+`pw.x -inp pw.in` directly. Treat completed attempt directories as immutable
+snapshots; copy one before manual experiments. On the next invocation, FDVIB
+may recover a valid manually completed attempt that has not yet been committed
+to a completion snapshot.
 
 Because `pw_command` is executed from the calculation directory, executables and
 auxiliary files named in that command must either be discoverable through the
@@ -226,13 +224,11 @@ forces and `JOB DONE` without an SCF non-convergence diagnostic.
 
 ## Hessian and QE dynamical matrix
 
-For the active atom set, FDVIB evaluates
+For the active atom set, FDVIB evaluates the central finite difference:
 
-$$
-H_{j\beta,i\alpha} =
--\frac{F_{j\beta}(+\delta_{i\alpha})-
-F_{j\beta}(-\delta_{i\alpha})}{2\delta}.
-$$
+```text
+H[jβ,iα] = - (F[jβ](+δ[iα]) - F[jβ](-δ[iα])) / (2δ)
+```
 
 It reports the maximum antisymmetric component before symmetrization, then
 writes:
@@ -258,6 +254,43 @@ fdvib/results/<prefix>.freq.out
 With `run_dynmat=false`, calculation stops after `dynG` and `dynmat.in`.
 Changing only this setting to `true` and repeating `fdvib -inp fdvib.in`
 skips reference, displacement, and Hessian stages and runs only `dynmat.x`.
+
+## Result metadata
+
+FDVIB writes result-level metadata to:
+
+```text
+fdvib/results/metadata.dat
+```
+
+This file records post-processing information that is not contained in
+`<prefix>.dynG` or `<prefix>.freq.out`:
+
+```text
+program = qe
+mode_selection = gas
+electronic_energy_hartree = -76.0
+multiplicity = 1
+selected_atoms = all
+```
+
+`program` is reserved for source-program dispatch; the current reader accepts
+only `qe`. `mode_selection` controls how exporters select frequencies:
+`all` writes all nonzero frequencies, `gas` removes rigid translations and
+rotations by molecular geometry, and `local` keeps `3 * selected_atoms` modes
+for SHM export. `electronic_energy_hartree` is the unperturbed SCF energy used
+by `.shm`; if the field is absent, SHM writes `0.0`. `multiplicity` is written
+as the ground-state electronic degeneracy in `.shm`. `selected_atoms` records
+the one-based active atom list or `all`.
+
+The file is generated by the calculation workflow. Users may edit it before
+running post-processing commands when they intentionally want to change export
+metadata, for example `mode_selection`, `multiplicity`, or the electronic
+energy used in `.shm`. Editing `metadata.dat` does not change the completed
+force calculation or the Hessian; it only affects later exports. If
+`metadata.dat` is missing, exporters use conservative defaults:
+`program=qe`, `mode_selection=all`, `multiplicity=1`, and
+`electronic_energy_hartree=0.0`.
 
 ## State and recovery
 
@@ -296,7 +329,11 @@ geometry, writes zero displacement for frozen atoms, and omits modes within
 the internal `1e-6 cm^-1` zero tolerance. Re-running the command overwrites the
 generated `.mold` file.
 
-## Fake Gaussian output for GaussView
+QE can also write Molden-style vibration files, but imaginary frequencies may
+be inconvenient to inspect because some viewers treat them as zero-frequency
+modes. FDVIB's compact Molden export keeps the signed frequency values.
+
+## GaussView vibration export
 
 Run after `dynmat.x` has produced a valid frequency file:
 
@@ -305,17 +342,19 @@ fdvib fakeg fdvib/results
 ```
 
 The command reads exactly one `<prefix>.dynG` and one `<prefix>.freq.out`, then
-writes `<prefix>_fake.out` in a minimal Gaussian-like format that GaussView can
-use for frequency inspection and vibration animation. For `mode_selection=gas`
-metadata, FDVIB follows the same molecular degree-of-freedom selection used by
-the SHM export: atom `0`, linear molecule `3N-5`, and nonlinear molecule
-`3N-6` modes. For `all` and `local` metadata, frequencies exactly equal to
-`0.0` are omitted. IR intensities are currently written as `0.0` because the
-FDVIB result interface only requires normal-mode frequencies and eigenvectors.
+writes `<prefix>_fake.out` in a small text layout that GaussView recognizes for
+frequency inspection and vibration animation. This is a visualization bridge
+only; it is not a Gaussian calculation output, is not intended for
+thermochemistry, and is not affiliated with or endorsed by Gaussian or
+GaussView.
 
-The export is intentionally narrow: it is a visualization bridge, not a
-Gaussian thermochemistry output. Re-running the command overwrites the
-generated `<prefix>_fake.out`.
+For `mode_selection=gas` metadata, FDVIB follows the same molecular
+degree-of-freedom selection used by the SHM export: atom `0`, linear molecule
+`3N-5`, and nonlinear molecule `3N-6` modes. For `all` and `local` metadata,
+frequencies exactly equal to `0.0` are omitted. IR intensities are currently
+written as `0.0` because the FDVIB result interface only requires normal-mode
+frequencies and eigenvectors. Re-running the command overwrites the generated
+`<prefix>_fake.out`.
 
 ## Shermo `.shm` export (recommended)
 
@@ -340,26 +379,9 @@ The `.shm` export produces an input file for
 > DOI: [10.1016/j.comptc.2021.113249](https://doi.org/10.1016/j.comptc.2021.113249)
 
 The command requires exactly one `<prefix>.dynG` and one `<prefix>.freq.out`.
-It optionally reads `metadata.dat`; without it, the defaults are
-`program=qe`, `mode_selection=all`, `multiplicity=1`, and
-`electronic_energy_hartree=0.0`. The default `all` mode writes every nonzero
+It also reads `metadata.dat` when present; see the result metadata section for
+the recorded fields and defaults. The default `all` mode writes every nonzero
 frequency and omits only frequencies exactly equal to `0.0`.
-
-`metadata.dat` may contain:
-
-```text
-program = qe
-mode_selection = gas
-electronic_energy_hartree = -76.0
-multiplicity = 1
-selected_atoms = all
-```
-
-`program` is a forward-compatible interface for multiple source programs; the
-current reader supports only `qe`. `mode_selection` controls frequency
-selection: `all` writes all nonzero frequencies, `gas` removes rigid
-translations/rotations by molecular geometry, and `local` keeps
-`3 * selected_atoms` modes.
 
 The command writes `<prefix>.shm` with electronic energy, wavenumbers, atoms,
 and electronic levels. Coordinates are written in Angstrom, masses in amu, and
@@ -396,7 +418,8 @@ writes the remaining `3N_active` modes and all atoms. Run Shermo as:
 Shermo fdvib/results/system.shm -imode 1 -PGlabel C1
 ```
 
-For isolated gas molecules, use Shermo's normal molecular mode:
+For gas-molecule `.shm` files, run Shermo directly according to your target
+analysis and the Shermo documentation, for example:
 
 ```bash
 Shermo fdvib/results/molecule.shm
