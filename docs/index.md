@@ -11,6 +11,7 @@ Normal-mode visualization and thermochemistry remain separate analyses:
 
 ```bash
 fdvib modes fdvib/results
+fdvib fakeg fdvib/results
 fdvib thermo fdvib/results -inp thermo.in
 fdvib shm fdvib/results
 ```
@@ -293,6 +294,24 @@ The command reads `<prefix>.dynG` and `<prefix>.freq.out`, then writes a compact
 `<prefix>.mold`. It preserves imaginary-frequency signs, includes the complete
 geometry, writes zero displacement for frozen atoms, and omits modes within
 the internal `1e-6 cm^-1` zero tolerance.
+
+## Fake Gaussian output for GaussView
+
+Run after `dynmat.x` has produced a valid frequency file:
+
+```bash
+fdvib fakeg fdvib/results
+```
+
+The command reads exactly one `<prefix>.dynG` and one `<prefix>.freq.out`, then
+writes `<prefix>_fake.out` in a minimal Gaussian-like format that GaussView can
+use for frequency inspection and vibration animation. IR intensities are
+currently written as `0.0` because the FDVIB result interface only requires
+normal-mode frequencies and eigenvectors.
+
+The export is intentionally narrow: it is a visualization bridge, not a
+Gaussian thermochemistry output. It refuses to overwrite an existing
+`<prefix>_fake.out`.
 
 ## Shermo `.shm` export (recommended)
 

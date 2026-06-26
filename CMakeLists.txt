@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(fdvib VERSION 0.4.0 LANGUAGES CXX)
+project(fdvib VERSION 0.4.1 LANGUAGES CXX)
 
 add_executable(fdvib
   src/main.cpp
@@ -9,6 +9,7 @@ add_executable(fdvib
   src/analysis.cpp
   src/thermo.cpp
   src/shm.cpp
+  src/fakeg.cpp
   src/results.cpp
 )
 target_compile_features(fdvib PRIVATE cxx_std_17)
@@ -31,4 +32,6 @@ if(BUILD_TESTING)
            COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/qe_units.sh $<TARGET_FILE:fdvib>)
   add_test(NAME shm_export
            COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/shm_export.sh $<TARGET_FILE:fdvib>)
+  add_test(NAME fakeg_export
+           COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/fakeg_export.sh $<TARGET_FILE:fdvib>)
 endif()

@@ -121,5 +121,6 @@ void calculate(const Settings &s);
 void modes(const fs::path &results);
 void thermo(const fs::path &results, const fs::path &thermo_input);
 void shm(const fs::path &results);
+void fakeg(const fs::path &results);
 
 } // namespace fdvib

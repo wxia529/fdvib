@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-06-26
+
+### Added
+
+- Add `fdvib fakeg RESULTS_DIR` to export a minimal Gaussian-like
+  `<prefix>_fake.out` from FDVIB `.dynG` and `.freq.out` results for
+  GaussView vibration visualization.
+
 ## [0.4.0] - 2026-06-26
 
 ### Added

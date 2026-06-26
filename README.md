@@ -11,6 +11,7 @@ FDVIB supports:
   periodic system;
 - isolated-molecule rigid-rotor harmonic-oscillator (RRHO) thermochemistry;
 - compact Molden output for normal-mode visualization;
+- Gaussian-like fake output for loading FDVIB modes in GaussView;
 - Shermo 2.6.2-compatible `.shm` export;
 - harmonic and frequency-floor treatments of low positive frequencies.
 
@@ -83,6 +84,7 @@ From the calculation directory:
 ```sh
 fdvib -inp fdvib.in
 fdvib modes fdvib/results
+fdvib fakeg fdvib/results
 fdvib thermo fdvib/results -inp thermo.in
 fdvib shm fdvib/results
 ```
@@ -117,6 +119,7 @@ fdvib/results/
   system.dynG
   system.freq.out
   system.mold
+  system_fake.out
   system.shm
   dynmat.in
   metadata.dat
