@@ -16,6 +16,8 @@ fdvib thermo fdvib/results -inp thermo.in
 fdvib shm fdvib/results
 ```
 
+For method details, see [Theory and method](theory.md).
+
 ## Calculation model
 
 The calculation command performs these stages in order:
@@ -342,11 +344,10 @@ fdvib fakeg fdvib/results
 ```
 
 The command reads exactly one `<prefix>.dynG` and one `<prefix>.freq.out`, then
-writes `<prefix>_fake.out` in a small text layout that GaussView recognizes for
+writes `<prefix>_fake.out` in a text layout that GaussView recognizes for
 frequency inspection and vibration animation. This is a visualization bridge
-only; it is not a Gaussian calculation output, is not intended for
-thermochemistry, and is not affiliated with or endorsed by Gaussian or
-GaussView.
+only; it is not a Gaussian calculation output and is not intended for
+thermochemistry.
 
 For `mode_selection=gas` metadata, FDVIB follows the same molecular
 degree-of-freedom selection used by the SHM export: atom `0`, linear molecule
