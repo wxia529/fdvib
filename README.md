@@ -95,6 +95,9 @@ execution. Set `run_dynmat = true` or `false` in `fdvib.in`. Each displaced
 SCF uses its own QE `outdir` and an FDVIB-injected `startingpot='file'`.
 Displaced inputs also use `disk_io='nowf'` to avoid retaining unnecessary
 wavefunction files.
+Post-processing commands (`modes`, `fakeg`, `thermo`, and `shm`) may be rerun;
+they overwrite only the files they generate and still reject damaged or
+incomplete inputs.
 Generated inputs use a calculation-local `outdir='./out'`. Runs are stored in
 one flat directory level, for example `calculations/init_scf_001` and
 `calculations/disp_0001_x_m_001`. An incomplete directory can be rerun there with

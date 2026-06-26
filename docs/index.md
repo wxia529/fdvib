@@ -293,7 +293,8 @@ fdvib modes fdvib/results
 The command reads `<prefix>.dynG` and `<prefix>.freq.out`, then writes a compact
 `<prefix>.mold`. It preserves imaginary-frequency signs, includes the complete
 geometry, writes zero displacement for frozen atoms, and omits modes within
-the internal `1e-6 cm^-1` zero tolerance.
+the internal `1e-6 cm^-1` zero tolerance. Re-running the command overwrites the
+generated `.mold` file.
 
 ## Fake Gaussian output for GaussView
 
@@ -305,14 +306,16 @@ fdvib fakeg fdvib/results
 
 The command reads exactly one `<prefix>.dynG` and one `<prefix>.freq.out`, then
 writes `<prefix>_fake.out` in a minimal Gaussian-like format that GaussView can
-use for frequency inspection and vibration animation. Frequencies exactly
-equal to `0.0` are omitted. IR intensities are currently written as `0.0`
-because the FDVIB result interface only requires normal-mode frequencies and
-eigenvectors.
+use for frequency inspection and vibration animation. For `mode_selection=gas`
+metadata, FDVIB follows the same molecular degree-of-freedom selection used by
+the SHM export: atom `0`, linear molecule `3N-5`, and nonlinear molecule
+`3N-6` modes. For `all` and `local` metadata, frequencies exactly equal to
+`0.0` are omitted. IR intensities are currently written as `0.0` because the
+FDVIB result interface only requires normal-mode frequencies and eigenvectors.
 
 The export is intentionally narrow: it is a visualization bridge, not a
-Gaussian thermochemistry output. It refuses to overwrite an existing
-`<prefix>_fake.out`.
+Gaussian thermochemistry output. Re-running the command overwrites the
+generated `<prefix>_fake.out`.
 
 ## Shermo `.shm` export (recommended)
 
@@ -400,7 +403,7 @@ Shermo fdvib/results/molecule.shm
 ```
 
 Export is transactional: FDVIB validates the generated text before renaming
-it to `.shm` and refuses to overwrite an existing file.
+it to `.shm`. Re-running the command overwrites the generated `.shm` file.
 
 ## Built-in thermochemistry
 

@@ -31,6 +31,9 @@ std::string strip_comment(const std::string &line);
 double number(std::string s);
 std::string read_text(const fs::path &p);
 void write_text(const fs::path &p, const std::string &s);
+bool is_standard_element(const std::string &symbol);
+std::string standard_element_symbol(const std::string &label, const std::string &context);
+int atomic_number_from_label(const std::string &label, const std::string &context);
 
 struct Config {
     std::map<std::string, std::string> v;
@@ -75,6 +78,18 @@ std::string reference_input(const QEInput &q, const std::string &outdir,
 std::string displaced_input(const QEInput &q, int atom, int axis, double shift,
                             const std::string &outdir, const fs::path &source_dir,
                             const fs::path &run_dir);
+std::string shell_quote(const std::string &s);
+int shell_run(const std::string &cmd, const fs::path &cwd, const fs::path &stdout_path);
+std::string file_digest(const fs::path &p);
+std::string numbered_name(const std::string &task, int n);
+bool is_numbered_name(const std::string &name, const std::string &task);
+fs::path new_numbered_directory(const fs::path &parent, const std::string &task);
+std::vector<fs::path> numbered_directories(const fs::path &parent, const std::string &task);
+void validate_qe_output(const fs::path &output);
+std::vector<Vec3> parse_forces(const fs::path &output, int nat);
+void write_forces(const fs::path &p, const std::vector<Vec3> &f, const fs::path &source);
+std::vector<Vec3> read_forces(const fs::path &p, int nat);
+double read_total_energy_hartree(const fs::path &output);
 
 struct Settings {
     fs::path config_path, root, scf_input, workdir;
@@ -112,9 +127,24 @@ struct DynGeometry {
     std::vector<std::string> symbols;
 };
 
+struct ModeSelection {
+    std::vector<const Mode *> modes;
+    std::string classification;
+    double largest_removed{};
+};
+
+ModeSelection select_gas_internal_modes(const DynGeometry &geometry,
+                                        const std::vector<Mode> &modes,
+                                        const std::string &context);
+ModeSelection select_shm_modes(const ResultMetadata &metadata,
+                               const DynGeometry &geometry,
+                               const std::vector<Mode> &modes);
+ModeSelection select_fakeg_modes(const ResultMetadata &metadata,
+                                 const DynGeometry &geometry,
+                                 const std::vector<Mode> &modes);
+
 std::vector<Mode> parse_modes(const fs::path &p, int nat);
 DynGeometry read_dyn_geometry(const fs::path &p);
-std::vector<Vec3> read_forces(const fs::path &p, int nat);
 
 void analyze(const Settings &s);
 void calculate(const Settings &s);

@@ -50,8 +50,22 @@ grep -Eq '^     1   6' "$case_dir/co_fake.out"
 grep -Eq '^     2   8' "$case_dir/co_fake.out"
 grep -q 'Normal termination of Gaussian' "$case_dir/co_fake.out"
 
-if "$fdvib" fakeg "$case_dir" > /dev/null 2> "$case_dir/error"; then
-  echo "fakeg unexpectedly overwrote an existing file" >&2
+"$fdvib" fakeg "$case_dir" > "$case_dir/fakeg-rerun.out"
+grep -q "Wrote .*co_fake.out" "$case_dir/fakeg-rerun.out"
+test -s "$case_dir/co_fake.out"
+
+gas_dir="$case_dir/gas-co"
+mkdir -p "$gas_dir"
+cp "$case_dir/co.dynG" "$gas_dir/co.dynG"
+cp "$case_dir/co.freq.out" "$gas_dir/co.freq.out"
+cat > "$gas_dir/metadata.dat" <<'EOF'
+program = qe
+mode_selection = gas
+EOF
+"$fdvib" fakeg "$gas_dir" > "$gas_dir/fakeg.out"
+grep -q 'Frequencies --   2143.0000' "$gas_dir/co_fake.out"
+test "$(grep -c 'Frequencies --' "$gas_dir/co_fake.out")" -eq 1
+if grep -Eq -- '-1\.0000| 1\.0000| 2\.0000| 3\.0000' "$gas_dir/co_fake.out"; then
+  echo "gas fakeg unexpectedly kept rigid modes for CO" >&2
   exit 1
 fi
-grep -q 'Refuse to overwrite' "$case_dir/error"

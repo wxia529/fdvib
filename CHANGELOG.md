@@ -7,11 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-06-26
+
+### Changed
+
+- Share gas internal-mode selection between SHM and fake Gaussian exports.
+- Allow post-processing exports (`modes`, `thermo`, `shm`, and `fakeg`) to be
+  re-run by overwriting their generated output files.
+- Split QE input handling, QE output parsing, process execution, and run-state
+  helpers out of the calculation workflow implementation.
+
 ## [0.4.2] - 2026-06-26
 
 ### Changed
 
-- Omit exact zero frequencies from fake Gaussian exports.
+- Make fake Gaussian exports use gas molecular degree-of-freedom mode
+  selection when `metadata.dat` has `mode_selection=gas`; `all` and `local`
+  exports still omit exact zero frequencies.
 
 ## [0.4.1] - 2026-06-26
 
@@ -216,7 +228,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Tag-triggered Linux release packaging through GitHub Actions.
 - BSD 3-Clause licensing.
 
-[Unreleased]: https://github.com/wxia529/fdvib/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/wxia529/fdvib/compare/v0.4.3...HEAD
+[0.4.3]: https://github.com/wxia529/fdvib/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/wxia529/fdvib/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/wxia529/fdvib/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/wxia529/fdvib/compare/v0.3.4...v0.4.0

@@ -1,20 +1,14 @@
 #include "fdvib.hpp"
 
-#include <algorithm>
-#include <cerrno>
 #include <cctype>
 #include <cmath>
-#include <cstdio>
-#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <numeric>
 #include <regex>
 #include <set>
 #include <sstream>
-#include <cstdint>
 #include <stdexcept>
-#include <sys/wait.h>
 #include <sys/file.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -52,157 +46,7 @@ class CalculationLock {
 
 } // namespace
 
-std::string shell_quote(const std::string &s) {
-    std::string q = "'";
-    for (char c : s) q += (c == '\'') ? "'\\''" : std::string(1, c);
-    return q + "'";
-}
-
-int shell_run(const std::string &cmd, const fs::path &cwd, const fs::path &stdout_path) {
-    const pid_t pid = fork();
-    if (pid < 0) throw std::runtime_error("fork failed");
-    if (pid == 0) {
-        if (chdir(cwd.c_str()) != 0) _exit(126);
-        FILE *f = std::fopen(stdout_path.c_str(), "w");
-        if (!f) _exit(126);
-        dup2(fileno(f), STDOUT_FILENO); dup2(fileno(f), STDERR_FILENO); std::fclose(f);
-        execl("/bin/sh", "sh", "-c", cmd.c_str(), static_cast<char *>(nullptr));
-        _exit(127);
-    }
-    int status = 0;
-    while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
-    if (WIFEXITED(status)) return WEXITSTATUS(status);
-    return 128 + (WIFSIGNALED(status) ? WTERMSIG(status) : 0);
-}
-
-std::vector<Vec3> parse_forces(const fs::path &output, int nat) {
-    const auto text = read_text(output);
-    if (text.find("JOB DONE") == std::string::npos) throw std::runtime_error("JOB DONE not found: " + output.string());
-    if (std::regex_search(text, std::regex(R"(convergence\s+NOT\s+achieved)", std::regex::icase)))
-        throw std::runtime_error("SCF convergence was not achieved: " + output.string());
-    if (std::regex_search(text, std::regex(R"(Error\s+in\s+routine)", std::regex::icase)))
-        throw std::runtime_error("QE reported Error in routine: " + output.string());
-    const auto pos = text.rfind("Forces acting on atoms");
-    if (pos == std::string::npos) throw std::runtime_error("Force block not found: " + output.string());
-    std::istringstream in(text.substr(pos));
-    std::regex re(R"(^\s*atom\s+(\d+)\s+type\s+\d+\s+force\s*=\s*([-+0-9.EeDd]+)\s+([-+0-9.EeDd]+)\s+([-+0-9.EeDd]+))", std::regex::icase);
-    std::vector<Vec3> f(nat);
-    std::vector<bool> got(nat, false);
-    std::string line; std::smatch m; bool started = false; int count = 0;
-    while (std::getline(in, line)) {
-        if (std::regex_search(line, m, re)) {
-            started = true;
-            const int i = std::stoi(m[1]) - 1;
-            if (i < 0 || i >= nat || got[i])
-                throw std::runtime_error("Invalid/duplicate atom in force block: " + output.string());
-            f[i] = {number(m[2]), number(m[3]), number(m[4])};
-            got[i] = true;
-            if (++count == nat) return f;
-        } else if (started) {
-            break;
-        }
-    }
-    throw std::runtime_error("Incomplete force block: " + output.string());
-}
-
-void write_forces(const fs::path &p, const std::vector<Vec3> &f, const fs::path &source) {
-    std::ostringstream o;
-    o << "# source: " << source.filename().string() << "\n# nat: " << f.size() << "\n# units: Ry/Bohr\n# atom fx fy fz\n";
-    o << std::scientific << std::setprecision(15);
-    for (std::size_t i = 0; i < f.size(); ++i) o << i + 1 << ' ' << f[i][0] << ' ' << f[i][1] << ' ' << f[i][2] << '\n';
-    write_text(p, o.str());
-}
-
-std::vector<Vec3> read_forces(const fs::path &p, int nat) {
-    std::istringstream in(read_text(p));
-    std::vector<Vec3> f(nat); std::vector<bool> got(nat, false);
-    std::string line;
-    while (std::getline(in, line)) {
-        line = trim(line); if (line.empty() || line.front() == '#') continue;
-        std::istringstream ls(line); int i; Vec3 v;
-        if (!(ls >> i >> v[0] >> v[1] >> v[2]) || i < 1 || i > nat) throw std::runtime_error("Bad forces.dat: " + p.string());
-        f[i - 1] = v; got[i - 1] = true;
-    }
-    if (std::count(got.begin(), got.end(), true) != nat) throw std::runtime_error("Incomplete forces.dat: " + p.string());
-    return f;
-}
-
 namespace {
-
-std::string file_digest(const fs::path &p) {
-    std::ifstream input(p, std::ios::binary);
-    if (!input) throw std::runtime_error("Cannot read " + p.string());
-    std::uint64_t hash = 1469598103934665603ULL;
-    std::array<char, 65536> buffer{};
-    while (input) {
-        input.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
-        const auto count = input.gcount();
-        for (std::streamsize i = 0; i < count; ++i) {
-            hash ^= static_cast<unsigned char>(buffer[static_cast<std::size_t>(i)]);
-            hash *= 1099511628211ULL;
-        }
-    }
-    if (!input.eof()) throw std::runtime_error("Failed while reading " + p.string());
-    std::ostringstream out;
-    out << std::hex << std::setfill('0') << std::setw(16) << hash;
-    return out.str();
-}
-
-std::string numbered_name(const std::string &task, int n) {
-    std::ostringstream out;
-    out << task << '_' << std::setfill('0') << std::setw(3) << n;
-    return out.str();
-}
-
-fs::path new_numbered_directory(const fs::path &parent, const std::string &task) {
-    fs::create_directories(parent);
-    int n = 1;
-    while (fs::exists(parent / numbered_name(task, n))) ++n;
-    const auto path = parent / numbered_name(task, n);
-    fs::create_directories(path);
-    return path;
-}
-
-bool is_numbered_name(const std::string &name, const std::string &task) {
-    const auto prefix = task + '_';
-    if (name.rfind(prefix, 0) != 0 || name.size() < prefix.size() + 3) return false;
-    return std::all_of(name.begin() + static_cast<std::ptrdiff_t>(prefix.size()), name.end(),
-                       [](unsigned char c) { return std::isdigit(c) != 0; });
-}
-
-std::vector<fs::path> numbered_directories(const fs::path &parent, const std::string &task) {
-    std::vector<fs::path> found;
-    if (!fs::is_directory(parent)) return found;
-    for (const auto &entry : fs::directory_iterator(parent))
-        if (entry.is_directory() && is_numbered_name(entry.path().filename().string(), task))
-            found.push_back(entry.path());
-    std::sort(found.rbegin(), found.rend());
-    return found;
-}
-
-void validate_pw_output(const fs::path &output) {
-    const auto text = read_text(output);
-    if (text.find("JOB DONE") == std::string::npos)
-        throw std::runtime_error("JOB DONE not found: " + output.string());
-    if (std::regex_search(text, std::regex(R"(convergence\s+NOT\s+achieved)", std::regex::icase)))
-        throw std::runtime_error("SCF convergence was not achieved: " + output.string());
-    if (std::regex_search(text, std::regex(R"(Error\s+in\s+routine)", std::regex::icase)))
-        throw std::runtime_error("QE reported Error in routine: " + output.string());
-}
-
-double read_total_energy_hartree(const fs::path &output) {
-    const auto text = read_text(output);
-    const std::regex pattern(R"(!\s+total\s+energy\s*=\s*([-+0-9.EeDd]+)\s+Ry\b)",
-                             std::regex::icase);
-    bool found = false;
-    double energy_ry = 0.0;
-    for (std::sregex_iterator it(text.begin(), text.end(), pattern), end; it != end; ++it) {
-        energy_ry = number((*it)[1]);
-        found = true;
-    }
-    if (!found) throw std::runtime_error("Cannot find converged QE total energy in " + output.string());
-    return energy_ry / 2.0;
-}
 
 std::string metadata_text(const Settings &s, const fs::path &output) {
     std::ostringstream data;
@@ -309,7 +153,7 @@ ReferenceSeed ensure_reference(const Settings &s, const QEInput &q) {
         const auto attempt = calculations / attempt_name_saved;
         const auto density = attempt / "out" / (q.prefix + ".save") / density_name;
         const auto paw = density.parent_path() / "paw.txt";
-        validate_pw_output(attempt / "scf.out");
+        validate_qe_output(attempt / "scf.out");
         if (!fs::is_regular_file(density) || file_digest(density) != density_digest)
             throw std::runtime_error("Completed reference charge density is missing or modified: " + density.string());
         if (paw_name == "-") {
@@ -329,7 +173,7 @@ ReferenceSeed ensure_reference(const Settings &s, const QEInput &q) {
     }
     const auto commit = [&](const fs::path &calculation, bool recovered) {
         const auto output = calculation / "scf.out";
-        validate_pw_output(output);
+        validate_qe_output(output);
         (void)parse_forces(output, q.nat);
         const auto density = density_file(calculation, q.prefix);
         const auto paw = density.parent_path() / "paw.txt";
@@ -502,7 +346,7 @@ void ensure_dynmat(const Settings &s) {
             file_digest(calculation_dyn) != file_digest(dyn) ||
             file_digest(calculation_input) != file_digest(results / "dynmat.in"))
             throw std::runtime_error("dynmat calculation inputs differ from Hessian results: " + calculation.string());
-        validate_pw_output(calculation_output);
+        validate_qe_output(calculation_output);
         if (!fs::is_regular_file(calculation_freq) || fs::file_size(calculation_freq) == 0)
             throw std::runtime_error("dynmat calculation frequency output is missing: " + calculation_freq.string());
         const auto geometry = read_dyn_geometry(calculation_dyn);
@@ -516,7 +360,7 @@ void ensure_dynmat(const Settings &s) {
             throw std::runtime_error("Invalid dynmat completion snapshot: " + state_marker.string());
         const auto calculation = calculations / calculation_name;
         validate_calculation(calculation);
-        validate_pw_output(final_output);
+        validate_qe_output(final_output);
         if (!fs::is_regular_file(final_freq)) throw std::runtime_error("Completed dynmat frequency output is missing");
         if (file_digest(final_output) != output_digest || file_digest(final_freq) != freq_digest)
             throw std::runtime_error("Completed dynmat results were modified");
@@ -531,7 +375,7 @@ void ensure_dynmat(const Settings &s) {
         if (fs::is_regular_file(final_output) && fs::is_regular_file(final_freq)) {
             for (const auto &calculation : numbered_directories(calculations, "dynmat")) {
                 try {
-                    validate_pw_output(final_output);
+                    validate_qe_output(final_output);
                     validate_modes();
                     validate_calculation(calculation);
                     if (file_digest(final_output) != file_digest(calculation / "dynmat.out") ||
@@ -570,7 +414,7 @@ void ensure_dynmat(const Settings &s) {
     std::cout << "Running dynmat.x\n";
     const int rc = shell_run(s.dynmat_command + " -inp dynmat.in", attempt, "dynmat.out");
     if (rc != 0) throw std::runtime_error("dynmat.x failed with exit code " + std::to_string(rc));
-    validate_pw_output(attempt / "dynmat.out");
+    validate_qe_output(attempt / "dynmat.out");
     const auto freq = attempt / (s.output_prefix + ".freq.out");
     if (!fs::is_regular_file(freq) || fs::file_size(freq) == 0)
         throw std::runtime_error("dynmat.x did not produce " + freq.filename().string());

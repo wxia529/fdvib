@@ -1,15 +1,20 @@
 cmake_minimum_required(VERSION 3.12)
-project(fdvib VERSION 0.4.2 LANGUAGES CXX)
+project(fdvib VERSION 0.4.3 LANGUAGES CXX)
 
 add_executable(fdvib
   src/main.cpp
   src/common.cpp
-  src/qe_io.cpp
+  src/qe_input.cpp
+  src/qe_output.cpp
+  src/elements.cpp
+  src/process.cpp
   src/prepare_run.cpp
+  src/run_state.cpp
   src/analysis.cpp
   src/thermo.cpp
   src/shm.cpp
   src/fakeg.cpp
+  src/mode_selection.cpp
   src/results.cpp
 )
 target_compile_features(fdvib PRIVATE cxx_std_17)

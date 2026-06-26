@@ -56,11 +56,8 @@ grep -q '^-7.600000000000000E+01$' "$case_dir/co2.shm"
 grep -q '^0.000000 1$' "$case_dir/co2.shm"
 test "$(grep -Ec '^(C|O) ' "$case_dir/co2.shm")" -eq 3
 
-if "$fdvib" shm "$case_dir" > /dev/null 2> "$case_dir/error"; then
-  echo "SHM export unexpectedly overwrote an existing file" >&2
-  exit 1
-fi
-grep -q 'Refuse to overwrite' "$case_dir/error"
+"$fdvib" shm "$case_dir" > "$case_dir/shm-rerun.out"
+grep -q 'SHM mode selection: linear, retained 4, removed 5' "$case_dir/shm-rerun.out"
 
 rm "$case_dir/co2.shm"
 sed -i 's/program = qe/program = vasp/' "$case_dir/metadata.dat"

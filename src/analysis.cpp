@@ -175,7 +175,6 @@ void modes(const fs::path &results) {
     const auto g=read_dyn_geometry(files.dyn);
     const auto parsed=parse_modes(files.freq,static_cast<int>(g.masses.size()));
     const auto mold=results/(files.dyn.stem().string()+".mold");
-    if(fs::exists(mold)) throw std::runtime_error("Refuse to overwrite "+mold.string());
     write_compact_molden(mold,g,parsed,1.0e-6);
 }
 
