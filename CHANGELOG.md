@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `<prefix>_fake.out` from FDVIB `.dynG` and `.freq.out` results for
   GaussView vibration visualization.
 
+### Changed
+
+- Omit exact zero frequencies from fake Gaussian exports.
+
 ## [0.4.0] - 2026-06-26
 
 ### Added

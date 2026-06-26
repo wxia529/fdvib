@@ -40,6 +40,10 @@ grep -q 'Standard orientation:' "$case_dir/co_fake.out"
 grep -q 'Harmonic frequencies' "$case_dir/co_fake.out"
 grep -q 'Frequencies --     -1.0000' "$case_dir/co_fake.out"
 grep -q '2143.0000' "$case_dir/co_fake.out"
+if awk '/Frequencies --/ && $0 ~ /(^|[[:space:]])0\.0000([[:space:]]|$)/ { found=1 } END { exit found ? 0 : 1 }' "$case_dir/co_fake.out"; then
+  echo "fakeg unexpectedly wrote an exact zero frequency" >&2
+  exit 1
+fi
 grep -q 'IR Inten    --      0.0000' "$case_dir/co_fake.out"
 grep -q ' Atom  AN      X      Y      Z' "$case_dir/co_fake.out"
 grep -Eq '^     1   6' "$case_dir/co_fake.out"

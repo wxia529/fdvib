@@ -305,9 +305,10 @@ fdvib fakeg fdvib/results
 
 The command reads exactly one `<prefix>.dynG` and one `<prefix>.freq.out`, then
 writes `<prefix>_fake.out` in a minimal Gaussian-like format that GaussView can
-use for frequency inspection and vibration animation. IR intensities are
-currently written as `0.0` because the FDVIB result interface only requires
-normal-mode frequencies and eigenvectors.
+use for frequency inspection and vibration animation. Frequencies exactly
+equal to `0.0` are omitted. IR intensities are currently written as `0.0`
+because the FDVIB result interface only requires normal-mode frequencies and
+eigenvectors.
 
 The export is intentionally narrow: it is a visualization bridge, not a
 Gaussian thermochemistry output. It refuses to overwrite an existing

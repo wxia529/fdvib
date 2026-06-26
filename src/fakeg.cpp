@@ -63,6 +63,10 @@ void fakeg(const fs::path &results) {
     const auto files = result_files(results, "Fake Gaussian export");
     const auto geometry = read_dyn_geometry(files.dyn);
     const auto modes = parse_modes(files.freq, static_cast<int>(geometry.masses.size()));
+    std::vector<const Mode *> export_modes;
+    export_modes.reserve(modes.size());
+    for (const auto &mode : modes)
+        if (mode.freq != 0.0) export_modes.push_back(&mode);
     const auto destination = results / (files.dyn.stem().string() + "_fake.out");
     if (fs::exists(destination)) throw std::runtime_error("Refuse to overwrite " + destination.string());
 
@@ -79,15 +83,15 @@ void fakeg(const fs::path &results) {
         << " incident light, reduced masses (AMU), force constants (mDyne/A),\n"
         << " and normal coordinates:\n";
 
-    for (std::size_t first = 0; first < modes.size(); first += 3) {
-        const std::size_t count = std::min<std::size_t>(3, modes.size() - first);
+    for (std::size_t first = 0; first < export_modes.size(); first += 3) {
+        const std::size_t count = std::min<std::size_t>(3, export_modes.size() - first);
         out << "                 ";
         for (std::size_t j = 0; j < count; ++j) out << std::setw(23) << first + j + 1;
         out << "\n                 ";
         for (std::size_t j = 0; j < count; ++j) out << std::setw(23) << "A";
         out << "\n Frequencies --";
         for (std::size_t j = 0; j < count; ++j)
-            out << std::fixed << std::setprecision(4) << std::setw(12) << modes[first + j].freq << "           ";
+            out << std::fixed << std::setprecision(4) << std::setw(12) << export_modes[first + j]->freq << "           ";
         out << "\n IR Inten    --";
         for (std::size_t j = 0; j < count; ++j)
             out << std::fixed << std::setprecision(4) << std::setw(12) << 0.0 << "           ";
@@ -97,7 +101,7 @@ void fakeg(const fs::path &results) {
         for (std::size_t atom = 0; atom < geometry.symbols.size(); ++atom) {
             out << std::setw(6) << atom + 1 << std::setw(4) << atomic_number(geometry.symbols[atom]);
             for (std::size_t j = 0; j < count; ++j) {
-                const auto &d = modes[first + j].displacement.at(atom);
+                const auto &d = export_modes[first + j]->displacement.at(atom);
                 out << std::fixed << std::setprecision(2)
                     << std::setw(9) << d[0] << std::setw(7) << d[1] << std::setw(7) << d[2];
             }
