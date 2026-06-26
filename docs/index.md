@@ -430,7 +430,7 @@ it to `.shm`. Re-running the command overwrites the generated `.shm` file.
 
 ## Built-in thermochemistry
 
-FDVIB includes a built-in thermo analysis for quick checks.
+Run the built-in thermo analysis with:
 
 ```bash
 fdvib thermo fdvib/results -inp thermo.in

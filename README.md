@@ -149,8 +149,6 @@ results in Shermo's native format.
 > thermodynamic properties*, Comput. Theor. Chem., 1200, 113249 (2021)
 > DOI: [10.1016/j.comptc.2021.113249](https://doi.org/10.1016/j.comptc.2021.113249)
 
-FDVIB's built-in `thermo` command is an alternative for quick checks.
-
 Release history is recorded in the [changelog](CHANGELOG.md).
 
 ## License
