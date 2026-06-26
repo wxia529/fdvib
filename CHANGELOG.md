@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-06-26
+
+### Changed
+
+- Omit exact zero frequencies from fake Gaussian exports.
+
 ## [0.4.1] - 2026-06-26
 
 ### Added
@@ -14,10 +20,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Add `fdvib fakeg RESULTS_DIR` to export a minimal Gaussian-like
   `<prefix>_fake.out` from FDVIB `.dynG` and `.freq.out` results for
   GaussView vibration visualization.
-
-### Changed
-
-- Omit exact zero frequencies from fake Gaussian exports.
 
 ## [0.4.0] - 2026-06-26
 
@@ -214,7 +216,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Tag-triggered Linux release packaging through GitHub Actions.
 - BSD 3-Clause licensing.
 
-[Unreleased]: https://github.com/wxia529/fdvib/compare/v0.3.4...HEAD
+[Unreleased]: https://github.com/wxia529/fdvib/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/wxia529/fdvib/compare/v0.4.1...v0.4.2
+[0.4.1]: https://github.com/wxia529/fdvib/compare/v0.4.0...v0.4.1
+[0.4.0]: https://github.com/wxia529/fdvib/compare/v0.3.4...v0.4.0
 [0.3.4]: https://github.com/wxia529/fdvib/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/wxia529/fdvib/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/wxia529/fdvib/compare/v0.3.1...v0.3.2
