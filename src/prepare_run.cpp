@@ -199,7 +199,7 @@ ReferenceSeed ensure_reference(const Settings &s, const QEInput &q) {
     const auto input = attempt / "scf.in";
     write_text(input, reference_input(q, "./out", s.root, attempt));
     const auto cmd = s.pw_command + " -inp scf.in";
-    std::cout << "Running unperturbed reference SCF\n";
+    std::cout << "Running unperturbed reference SCF" << std::endl;
     const int rc = shell_run(cmd, attempt, "scf.out");
     if (rc != 0) throw std::runtime_error("Reference SCF failed with exit code " + std::to_string(rc));
     return commit(attempt, false);
@@ -315,7 +315,7 @@ void ensure_analysis(const Settings &s) {
         const auto failed_root = s.workdir / "failed";
         const auto failed = new_numbered_directory(failed_root, "analysis");
         fs::rename(results, failed);
-        std::cout << "Preserved incomplete Hessian results in " << failed << '\n';
+        std::cout << "Preserved incomplete Hessian results in " << display_path(failed) << '\n';
     }
     analyze(s);
     write_text(marker, file_digest(dyn) + " " + file_digest(results / "dynmat.in") +
@@ -393,7 +393,7 @@ void ensure_dynmat(const Settings &s) {
         const auto failed = new_numbered_directory(s.workdir / "failed", "dynmat_publish");
         if (fs::exists(final_output)) fs::rename(final_output, failed / final_output.filename());
         if (fs::exists(final_freq)) fs::rename(final_freq, failed / final_freq.filename());
-        std::cout << "Preserved incomplete dynmat results in " << failed << '\n';
+        std::cout << "Preserved incomplete dynmat results in " << display_path(failed) << '\n';
     }
     for (const auto &calculation : numbered_directories(calculations, "dynmat")) {
         try {
@@ -411,7 +411,7 @@ void ensure_dynmat(const Settings &s) {
     const auto attempt = new_numbered_directory(calculations, "dynmat");
     fs::copy_file(results / (s.output_prefix + ".dynG"), attempt / (s.output_prefix + ".dynG"));
     fs::copy_file(results / "dynmat.in", attempt / "dynmat.in");
-    std::cout << "Running dynmat.x\n";
+    std::cout << "Running dynmat.x" << std::endl;
     const int rc = shell_run(s.dynmat_command + " -inp dynmat.in", attempt, "dynmat.out");
     if (rc != 0) throw std::runtime_error("dynmat.x failed with exit code " + std::to_string(rc));
     validate_qe_output(attempt / "dynmat.out");
@@ -456,6 +456,7 @@ void calculate(const Settings &s) {
     run_displacements(s, q, selected, reference);
     ensure_analysis(s);
     ensure_dynmat(s);
+    std::cout << "FDVIB calculation completed" << std::endl;
 }
 
 } // namespace fdvib

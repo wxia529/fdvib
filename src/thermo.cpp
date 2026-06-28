@@ -10,6 +10,13 @@
 
 namespace fdvib {
 
+namespace {
+
+constexpr double EV_TO_KCAL_MOL = 23.06054783061903;
+constexpr double EV_TO_KJ_MOL = 96.48533212331002;
+
+} // namespace
+
 std::array<double,3> symmetric_eigenvalues(Vec3 diag, Vec3 off) {
     // Stable analytic eigenvalues of a real symmetric 3x3 matrix.
     const double p1=off[0]*off[0]+off[1]*off[1]+off[2]*off[2];
@@ -103,7 +110,7 @@ void thermo(const fs::path &results, const fs::path &thermo_input) {
     if(low!="harmonic"&&low!="frequency_floor") throw std::runtime_error("Bad low_frequency_model");
     if(model=="gas_rrho"&&low!="harmonic")
         throw std::runtime_error("gas_rrho requires low_frequency_model='harmonic'; rigid-body modes are excluded by molecular degrees of freedom");
-    const double floor=c.real("frequency_floor_cm1",50),zt=c.real("zero_tolerance_cm1",1);
+    const double floor=c.real("frequency_floor_cm1",100),zt=c.real("zero_tolerance_cm1",1);
     if (zt < 0.0) throw std::runtime_error("zero_tolerance_cm1 must be non-negative");
     if (low=="frequency_floor" && floor <= 0.0) throw std::runtime_error("frequency_floor_cm1 must be positive");
     const auto files=result_files(results, "Thermochemistry");
@@ -178,8 +185,43 @@ void thermo(const fs::path &results, const fs::path &thermo_input) {
          <<std::setw(18)<<vib.s<<std::setw(18)<<selec
          <<std::setw(15)<<std::setprecision(10)<<hcorr<<std::setw(15)<<gcorr<<'\n';
     }
+    const auto append_molar_table = [&](double scale, const std::string &energy_unit) {
+        o << "\n# units: T=K energies=" << energy_unit
+          << " entropy=" << energy_unit << "/K\n";
+        if (model == "local_harmonic") {
+            o << "# " << std::setw(11) << "T/K" << std::setw(16) << "ZPE"
+              << std::setw(16) << "U_vib" << std::setw(19) << "S_vib"
+              << std::setw(16) << "TS_vib" << std::setw(16) << "F_vib" << '\n';
+            o << "  " << std::setw(11) << std::setprecision(3) << T
+              << std::setw(16) << std::setprecision(10) << vib.zpe * scale
+              << std::setw(16) << vib.u * scale
+              << std::setw(19) << std::setprecision(12) << vib.s * scale
+              << std::setw(16) << std::setprecision(10) << T * vib.s * scale
+              << std::setw(16) << vib.f * scale << '\n';
+        } else {
+            o << "# " << std::setw(11) << "T/K" << std::setw(15) << "ZPE"
+              << std::setw(15) << "U_vib" << std::setw(15) << "H_trans"
+              << std::setw(15) << "U_rot" << std::setw(18) << "S_trans"
+              << std::setw(18) << "S_rot" << std::setw(18) << "S_vib"
+              << std::setw(18) << "S_elec" << std::setw(15) << "H_corr"
+              << std::setw(15) << "G_corr" << '\n';
+            o << "  " << std::setw(11) << std::setprecision(3) << T
+              << std::setw(15) << std::setprecision(10) << vib.zpe * scale
+              << std::setw(15) << vib.u * scale
+              << std::setw(15) << htrans * scale
+              << std::setw(15) << urot * scale
+              << std::setw(18) << std::setprecision(12) << strans * scale
+              << std::setw(18) << srot * scale
+              << std::setw(18) << vib.s * scale
+              << std::setw(18) << selec * scale
+              << std::setw(15) << std::setprecision(10) << hcorr * scale
+              << std::setw(15) << gcorr * scale << '\n';
+        }
+    };
+    append_molar_table(EV_TO_KCAL_MOL, "kcal/mol");
+    append_molar_table(EV_TO_KJ_MOL, "kJ/mol");
     write_text(results/"thermo.dat",o.str());
-    std::cout<<o.str()<<"Written "<<(results/"thermo.dat")<<'\n';
+    std::cout << o.str() << "Written " << display_path(results / "thermo.dat") << '\n';
 }
 
 } // namespace fdvib

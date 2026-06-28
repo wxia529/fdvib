@@ -111,7 +111,8 @@ void analyze(const Settings &s) {
        << "  remove_interaction_blocks=" << (s.system_type=="gas"?".false.":".true.") << ",\n/\n";
     write_text(results/"dynmat.in",di.str());
     std::cout << "Hessian max asymmetry: " << std::scientific << asym << " Ry/Bohr^2\n"
-              << "Wrote " << dyn << " and " << (results/"dynmat.in") << "\n";
+              << "Wrote " << display_path(dyn) << " and "
+              << display_path(results / "dynmat.in") << "\n";
 }
 
 DynGeometry read_dyn_geometry(const fs::path &p) {
@@ -167,7 +168,8 @@ void write_compact_molden(const fs::path &p, const DynGeometry &g,
         for (const auto &d : keep[i]->displacement) o << std::setw(15) << d[0] << ' ' << std::setw(15) << d[1] << ' ' << std::setw(15) << d[2] << '\n';
     }
     write_text(p, o.str());
-    std::cout << "Wrote " << keep.size() << " compact Molden modes\n";
+    std::cout << "Wrote " << keep.size() << " compact Molden modes to "
+              << display_path(p) << "\n";
 }
 
 void modes(const fs::path &results) {

@@ -72,6 +72,17 @@ grep -q '^# rigid_body_modes_excluded: 6$' "$case_dir/thermo.dat"
 grep -q '^# max_rigid_body_frequency_cm1: 0.3$' "$case_dir/thermo.dat"
 grep -q '^# expected_vibrational_modes: 3$' "$case_dir/thermo.dat"
 grep -q '^# positive_modes_used: 3$' "$case_dir/thermo.dat"
+grep -q '^# units: T=K energies=kcal/mol entropy=kcal/mol/K$' "$case_dir/thermo.dat"
+grep -q '^# units: T=K energies=kJ/mol entropy=kJ/mol/K$' "$case_dir/thermo.dat"
+awk '
+  /^# units: T=K energies=eV / { getline; getline; ev=$2 }
+  /^# units: T=K energies=kcal\/mol / { getline; getline; kcal=$2 }
+  /^# units: T=K energies=kJ\/mol / { getline; getline; kj=$2 }
+  END {
+    if (!(kcal/ev > 23.06054 && kcal/ev < 23.06056 &&
+          kj/ev > 96.48532 && kj/ev < 96.48534)) exit 1
+  }
+' "$case_dir/thermo.dat"
 
 sed -i "s/rotor_type = 'nonlinear'/rotor_type = 'linear'/" "$case_dir/thermo.in"
 "$fdvib" thermo "$case_dir" -inp "$case_dir/thermo.in" > /dev/null
@@ -90,7 +101,7 @@ grep -q 'imaginary/non-positive vibrational mode' "$case_dir/error"
 cat > "$case_dir/thermo.in" <<'EOF'
 model = 'local_harmonic'
 temperature_k = 298.15
-low_frequency_model = 'harmonic'
+low_frequency_model = 'frequency_floor'
 zero_tolerance_cm1 = 1.0
 EOF
 sed -i 's/remove_interaction_blocks = .false./remove_interaction_blocks = .true./' "$case_dir/dynmat.in"
@@ -98,3 +109,4 @@ sed -i 's/remove_interaction_blocks = .false./remove_interaction_blocks = .true.
 grep -q '^# imaginary_modes_excluded: 1$' "$case_dir/thermo.dat"
 grep -q '^# zero_modes_excluded: 6$' "$case_dir/thermo.dat"
 grep -q '^# positive_modes_used: 2$' "$case_dir/thermo.dat"
+grep -q '^# frequency_floor_cm1: 100$' "$case_dir/thermo.dat"

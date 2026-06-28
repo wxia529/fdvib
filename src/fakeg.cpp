@@ -83,7 +83,7 @@ void fakeg(const fs::path &results) {
         << " Normal termination of Gaussian\n";
 
     write_text(destination, out.str());
-    std::cout << "Wrote " << destination << "\n";
+    std::cout << "Wrote " << display_path(destination) << "\n";
 }
 
 } // namespace fdvib

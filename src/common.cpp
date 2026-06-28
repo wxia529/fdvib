@@ -71,6 +71,18 @@ void write_text(const fs::path &p, const std::string &s) {
     if (!f) throw std::runtime_error("Write failed: " + p.string());
 }
 
+std::string display_path(const fs::path &p) {
+    std::error_code error;
+    const auto cwd = fs::current_path(error);
+    if (error) return p.lexically_normal().string();
+    auto absolute = p.is_absolute() ? p : fs::absolute(p, error);
+    if (error) return p.lexically_normal().string();
+    absolute = absolute.lexically_normal();
+    const auto relative = fs::relative(absolute, cwd, error);
+    if (!error && !relative.empty()) return relative.lexically_normal().string();
+    return absolute.string();
+}
+
 namespace {
 
 std::string strip_key_value_comment(const std::string &line) {

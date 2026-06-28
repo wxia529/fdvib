@@ -273,6 +273,9 @@ model = local_harmonic
 FDVIB uses the selected local normal modes and applies the configured
 low-frequency treatment.
 
+`thermo.dat` reports the same thermochemical quantities in eV, kcal/mol, and
+kJ/mol. Entropies use the corresponding energy unit per kelvin.
+
 ## Infrared intensities
 
 The finite-difference workflow described above constructs force constants and

@@ -44,7 +44,9 @@ append_mode 7 641.78
 append_mode 8 1326.44
 append_mode 9 2383.22
 
-"$fdvib" shm "$case_dir" > "$case_dir/shm.out"
+(cd "$case_dir" && "$fdvib" shm . > shm.out)
+grep -qx 'Wrote co2.shm' "$case_dir/shm.out"
+grep -qx 'Run Shermo with: Shermo co2.shm' "$case_dir/shm.out"
 grep -q 'SHM mode selection: linear, retained 4, removed 5' "$case_dir/shm.out"
 awk '/^\*wavenum/{inside=1;next}/^\*atoms/{inside=0}inside{print}' "$case_dir/co2.shm" > "$case_dir/frequencies"
 test "$(wc -l < "$case_dir/frequencies")" -eq 4

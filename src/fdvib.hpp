@@ -31,6 +31,7 @@ std::string strip_comment(const std::string &line);
 double number(std::string s);
 std::string read_text(const fs::path &p);
 void write_text(const fs::path &p, const std::string &s);
+std::string display_path(const fs::path &p);
 bool is_standard_element(const std::string &symbol);
 std::string standard_element_symbol(const std::string &label, const std::string &context);
 int atomic_number_from_label(const std::string &label, const std::string &context);

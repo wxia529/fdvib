@@ -109,6 +109,7 @@ grep -q 'Namelist syntax is not accepted' "$case_dir/error"
 grep -q '^Running unperturbed reference SCF$' "$case_dir/run.out"
 grep -q '^Completed 6, preserved 0 displacement jobs$' "$case_dir/run.out"
 grep -q "dynmat.x was not requested" "$case_dir/run.out"
+grep -q '^FDVIB calculation completed$' "$case_dir/run.out"
 test "$(find "$case_dir/fdvib/calculations" -maxdepth 2 -name pw.in | wc -l)" -eq 6
 test "$(grep -Ril "outdir[[:space:]]*=[[:space:]]*'./out'" "$case_dir/fdvib/calculations" --include='*.in' | wc -l)" -eq 7
 grep -q "pseudo_dir = '$HOME/pseudo#hash'" "$case_dir/fdvib/calculations/init_scf_001/scf.in"

@@ -33,8 +33,8 @@ append_mode 4 2.0 0.40 0.50
 append_mode 5 3.0 0.60 0.70
 append_mode 6 2143.0 -0.80 0.90
 
-"$fdvib" fakeg "$case_dir" > "$case_dir/fakeg.out"
-grep -q "Wrote .*co_fake.out" "$case_dir/fakeg.out"
+(cd "$case_dir" && "$fdvib" fakeg . > fakeg.out)
+grep -qx 'Wrote co_fake.out' "$case_dir/fakeg.out"
 test -s "$case_dir/co_fake.out"
 grep -q 'Standard orientation:' "$case_dir/co_fake.out"
 grep -q 'Harmonic frequencies' "$case_dir/co_fake.out"

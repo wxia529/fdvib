@@ -443,7 +443,7 @@ Local harmonic example:
 model = local_harmonic
 temperature_k = 298.15
 low_frequency_model = frequency_floor
-frequency_floor_cm1 = 50.0
+frequency_floor_cm1 = 100.0
 zero_tolerance_cm1 = 1.0
 ```
 
@@ -465,7 +465,9 @@ degeneracy. It removes three rigid modes for an atom, five for a linear
 molecule, or six for a nonlinear molecule, then rejects any remaining
 non-positive vibrational frequency. Gas RRHO requires `metadata.dat` with
 `mode_selection = gas` so the spin multiplicity is unambiguous. Results are written to
-`fdvib/results/thermo.dat`.
+`fdvib/results/thermo.dat`. The file reports each energy table in eV,
+kcal/mol, and kJ/mol; the corresponding entropy units are eV/K,
+kcal/(mol K), and kJ/(mol K).
 
 Changing temperature or other thermochemistry settings requires only another
 `fdvib thermo` command; it never reruns the electronic-structure calculation.

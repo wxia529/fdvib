@@ -16,6 +16,15 @@ void require_no_extra(std::istringstream &in) {
     if (in >> extra) throw std::runtime_error("Extra field in generated SHM data line");
 }
 
+std::string shell_display_path(const fs::path &path) {
+    const auto shown = display_path(path);
+    constexpr const char *safe =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_@%+=:,./-";
+    return !shown.empty() && shown.find_first_not_of(safe) == std::string::npos
+               ? shown
+               : shell_quote(shown);
+}
+
 void validate_shm(const fs::path &path) {
     std::istringstream input(read_text(path));
     std::vector<std::string> lines;
@@ -106,15 +115,15 @@ void shm(const fs::path &results) {
     write_text(temporary, output.str());
     validate_shm(temporary);
     fs::rename(temporary, destination);
-    std::cout << "Wrote " << destination << "\n"
+    std::cout << "Wrote " << display_path(destination) << "\n"
               << "SHM mode selection: " << selected.classification << ", retained " << selected.modes.size()
               << ", removed " << modes.size()-selected.modes.size()
               << ", largest removed |frequency|=" << selected.largest_removed
               << ", smallest retained |frequency|=" << smallest_retained << " cm^-1\n";
     if (metadata.mode_selection == "local")
-        std::cout << "Run Shermo with: Shermo " << destination << " -imode 1 -PGlabel C1\n";
+        std::cout << "Run Shermo with: Shermo " << shell_display_path(destination) << " -imode 1 -PGlabel C1\n";
     else
-        std::cout << "Run Shermo with: Shermo " << destination << "\n";
+        std::cout << "Run Shermo with: Shermo " << shell_display_path(destination) << "\n";
 }
 
 } // namespace fdvib
