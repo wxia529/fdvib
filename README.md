@@ -10,8 +10,8 @@ FDVIB supports:
 - frozen-environment local harmonic calculations for selected atoms in a
   periodic system;
 - isolated-molecule rigid-rotor harmonic-oscillator (RRHO) thermochemistry;
-- compact Molden output for normal-mode visualization;
-- GaussView vibration export for loading FDVIB modes visually;
+- MfakeG-compatible Molden output for normal-mode visualization and optional
+  GaussView conversion;
 - Shermo-compatible `.shm` export;
 - harmonic and frequency-floor treatments of low positive frequencies.
 
@@ -23,6 +23,7 @@ calculations.
 - CMake 3.12 or later
 - A C++17 compiler
 - Quantum ESPRESSO `pw.x` and `dynmat.x`
+- MfakeG (optional, only for converting `.mol` files for GaussView)
 
 ## Build
 
@@ -84,7 +85,6 @@ From the calculation directory:
 ```sh
 fdvib -inp fdvib.in
 fdvib modes fdvib/results
-fdvib fakeg fdvib/results
 fdvib thermo fdvib/results -inp thermo.in
 fdvib shm fdvib/results
 ```
@@ -95,7 +95,7 @@ execution. Set `run_dynmat = true` or `false` in `fdvib.in`. Each displaced
 SCF uses its own QE `outdir` and an FDVIB-injected `startingpot='file'`.
 Displaced inputs also use `disk_io='nowf'` to avoid retaining unnecessary
 wavefunction files.
-Post-processing commands (`modes`, `fakeg`, `thermo`, and `shm`) may be rerun;
+Post-processing commands (`modes`, `thermo`, and `shm`) may be rerun;
 they overwrite only the files they generate and still reject damaged or
 incomplete inputs.
 Generated inputs use a calculation-local `outdir='./out'`. Runs are stored in
@@ -121,8 +121,7 @@ directory contains:
 fdvib/results/
   system.dynG
   system.freq.out
-  system.mold
-  system_fake.out
+  system.mol
   system.shm
   dynmat.in
   metadata.dat
@@ -150,6 +149,20 @@ results in Shermo's native format.
 > DOI: [10.1016/j.comptc.2021.113249](https://doi.org/10.1016/j.comptc.2021.113249)
 
 Release history is recorded in the [changelog](CHANGELOG.md).
+
+## Acknowledgements
+
+FDVIB uses Quantum ESPRESSO as its electronic-structure backend. The `.shm`
+interface follows the format and molecular thermochemistry workflow of
+[Shermo](http://sobereva.com/soft/shermo), developed by Dr. Tian Lu at the
+Beijing Kein Research Center for Natural Sciences and described in the cited
+work by Tian Lu and Qinxue Chen. We thank Dr. Tian Lu for answering a question
+about representing molecular vibrational frequencies in Shermo `.shm` files.
+
+FDVIB's MfakeG-compatible Molden export follows the visualization workflow
+demonstrated by Dr. Tian Lu's [MfakeG](http://sobereva.com/soft/MfakeG).
+FDVIB independently writes the `.mol` file directly from FDVIB/QE results;
+MfakeG can then convert it for GaussView.
 
 ## License
 

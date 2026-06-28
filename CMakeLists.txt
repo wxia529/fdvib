@@ -9,14 +9,15 @@ add_executable(fdvib
   src/common.cpp
   src/qe_input.cpp
   src/qe_output.cpp
+  src/qe_vibration.cpp
   src/elements.cpp
   src/process.cpp
   src/prepare_run.cpp
   src/run_state.cpp
   src/analysis.cpp
+  src/molden.cpp
   src/thermo.cpp
   src/shm.cpp
-  src/fakeg.cpp
   src/mode_selection.cpp
   src/results.cpp
 )
@@ -40,6 +41,6 @@ if(BUILD_TESTING)
            COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/qe_units.sh $<TARGET_FILE:fdvib>)
   add_test(NAME shm_export
            COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/shm_export.sh $<TARGET_FILE:fdvib>)
-  add_test(NAME fakeg_export
-           COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/fakeg_export.sh $<TARGET_FILE:fdvib>)
+  add_test(NAME molden_export
+           COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/molden_export.sh $<TARGET_FILE:fdvib>)
 endif()

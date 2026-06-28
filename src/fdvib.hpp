@@ -126,13 +126,14 @@ ResultFiles result_files(const fs::path &results, const std::string &context);
 
 struct Mode { double freq{}; std::vector<Vec3> displacement; };
 struct DynGeometry {
+    std::array<Vec3, 3> cell_bohr{};
     std::vector<double> masses;
     std::vector<Vec3> r_bohr;
     std::vector<std::string> symbols;
 };
 
 struct ModeSelection {
-    std::vector<const Mode *> modes;
+    std::vector<std::size_t> indices;
     std::string classification;
     double largest_removed{};
 };
@@ -143,18 +144,17 @@ ModeSelection select_gas_internal_modes(const DynGeometry &geometry,
 ModeSelection select_shm_modes(const ResultMetadata &metadata,
                                const DynGeometry &geometry,
                                const std::vector<Mode> &modes);
-ModeSelection select_fakeg_modes(const ResultMetadata &metadata,
-                                 const DynGeometry &geometry,
-                                 const std::vector<Mode> &modes);
+ModeSelection select_molden_modes(const ResultMetadata &metadata,
+                                  const DynGeometry &geometry,
+                                  const std::vector<Mode> &modes);
 
-std::vector<Mode> parse_modes(const fs::path &p, int nat);
-DynGeometry read_dyn_geometry(const fs::path &p);
+std::vector<Mode> read_qe_dynmat_modes(const fs::path &path, int nat);
+DynGeometry read_qe_dyn_geometry(const fs::path &path);
 
 void analyze(const Settings &s);
 void calculate(const Settings &s);
 void modes(const fs::path &results);
 void thermo(const fs::path &results, const fs::path &thermo_input);
 void shm(const fs::path &results);
-void fakeg(const fs::path &results);
 
 } // namespace fdvib

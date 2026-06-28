@@ -300,7 +300,7 @@ void ensure_analysis(const Settings &s) {
         if (fs::is_regular_file(dyn) && fs::is_regular_file(results / "dynmat.in") &&
             fs::is_regular_file(result_metadata)) {
             try {
-                (void)read_dyn_geometry(dyn);
+                (void)read_qe_dyn_geometry(dyn);
                 const auto input = Config::load_qe_namelist(results / "dynmat.in");
                 if (input.get("fildyn") != dyn.filename().string())
                     throw std::runtime_error("dynmat.in references a different dynamical matrix");
@@ -337,8 +337,8 @@ void ensure_dynmat(const Settings &s) {
     const auto dyn = results / (s.output_prefix + ".dynG");
     const auto calculations = s.workdir / "calculations";
     const auto validate_modes = [&] {
-        const auto geometry = read_dyn_geometry(dyn);
-        (void)parse_modes(final_freq, static_cast<int>(geometry.masses.size()));
+        const auto geometry = read_qe_dyn_geometry(dyn);
+        (void)read_qe_dynmat_modes(final_freq, static_cast<int>(geometry.masses.size()));
     };
     const auto validate_calculation = [&](const fs::path &calculation) {
         const auto calculation_dyn = calculation / dyn.filename();
@@ -352,8 +352,8 @@ void ensure_dynmat(const Settings &s) {
         validate_qe_output(calculation_output);
         if (!fs::is_regular_file(calculation_freq) || fs::file_size(calculation_freq) == 0)
             throw std::runtime_error("dynmat calculation frequency output is missing: " + calculation_freq.string());
-        const auto geometry = read_dyn_geometry(calculation_dyn);
-        (void)parse_modes(calculation_freq, static_cast<int>(geometry.masses.size()));
+        const auto geometry = read_qe_dyn_geometry(calculation_dyn);
+        (void)read_qe_dynmat_modes(calculation_freq, static_cast<int>(geometry.masses.size()));
     };
     if (fs::exists(state_marker)) {
         std::istringstream in(read_text(state_marker));
@@ -421,8 +421,8 @@ void ensure_dynmat(const Settings &s) {
     const auto freq = attempt / (s.output_prefix + ".freq.out");
     if (!fs::is_regular_file(freq) || fs::file_size(freq) == 0)
         throw std::runtime_error("dynmat.x did not produce " + freq.filename().string());
-    const auto geometry = read_dyn_geometry(attempt / (s.output_prefix + ".dynG"));
-    (void)parse_modes(freq, static_cast<int>(geometry.masses.size()));
+    const auto geometry = read_qe_dyn_geometry(attempt / (s.output_prefix + ".dynG"));
+    (void)read_qe_dynmat_modes(freq, static_cast<int>(geometry.masses.size()));
     if (fs::exists(final_output) || fs::exists(final_freq))
         throw std::runtime_error("Refuse to overwrite existing dynmat result");
     fs::copy_file(attempt / "dynmat.out", final_output);

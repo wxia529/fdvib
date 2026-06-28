@@ -117,8 +117,8 @@ void thermo(const fs::path &results, const fs::path &thermo_input) {
     if (zt < 0.0) throw std::runtime_error("zero_tolerance_cm1 must be non-negative");
     if (low=="frequency_floor" && floor <= 0.0) throw std::runtime_error("frequency_floor_cm1 must be positive");
     const auto files=result_files(results, "Thermochemistry");
-    const auto g=read_dyn_geometry(files.dyn);
-    const auto modes=parse_modes(files.freq,static_cast<int>(g.masses.size()));
+    const auto g=read_qe_dyn_geometry(files.dyn);
+    const auto modes=read_qe_dynmat_modes(files.freq,static_cast<int>(g.masses.size()));
     std::string type;
     std::array<double,3> I{};
     double mtot=0.0;

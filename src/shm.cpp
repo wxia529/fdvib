@@ -80,18 +80,18 @@ void validate_shm(const fs::path &path) {
 
 void shm(const fs::path &results) {
     const auto files = result_files(results, "SHM export");
-    const auto geometry = read_dyn_geometry(files.dyn);
-    const auto modes = parse_modes(files.freq, static_cast<int>(geometry.masses.size()));
+    const auto geometry = read_qe_dyn_geometry(files.dyn);
+    const auto modes = read_qe_dynmat_modes(files.freq, static_cast<int>(geometry.masses.size()));
     const auto metadata = result_metadata(results, false);
     const double energy = metadata.electronic_energy_hartree;
     const int multiplicity = metadata.multiplicity;
     const auto selected = select_shm_modes(metadata, geometry, modes);
 
     double smallest_retained = 0.0;
-    if (!selected.modes.empty()) {
+    if (!selected.indices.empty()) {
         smallest_retained = std::numeric_limits<double>::infinity();
-        for (const auto *mode : selected.modes)
-            smallest_retained = std::min(smallest_retained, std::abs(mode->freq));
+        for (const auto index : selected.indices)
+            smallest_retained = std::min(smallest_retained, std::abs(modes.at(index).freq));
     }
     std::vector<std::string> output_symbols;
     output_symbols.reserve(geometry.symbols.size());
@@ -103,7 +103,8 @@ void shm(const fs::path &results) {
     std::ostringstream output;
     output << "*E  //Electronic energy (a.u.)\n" << std::uppercase << std::scientific << std::setprecision(15) << energy << '\n'
            << "*wavenum  //Wavenumbers (cm-1). Negative value means imaginary frequency\n";
-    for (const auto *mode : selected.modes) output << std::fixed << std::setprecision(10) << mode->freq << '\n';
+    for (const auto index : selected.indices)
+        output << std::fixed << std::setprecision(10) << modes.at(index).freq << '\n';
     output << "*atoms  //Information of all atoms: Name, mass (amu), X, Y, Z (Angstrom)\n";
     for (std::size_t i = 0; i < geometry.symbols.size(); ++i)
         output << output_symbols[i] << ' ' << std::fixed << std::setprecision(10) << geometry.masses[i] << ' '
@@ -119,8 +120,8 @@ void shm(const fs::path &results) {
     validate_shm(temporary);
     fs::rename(temporary, destination);
     std::cout << "Wrote " << display_path(destination) << "\n"
-              << "SHM mode selection: " << selected.classification << ", retained " << selected.modes.size()
-              << ", removed " << modes.size()-selected.modes.size()
+              << "SHM mode selection: " << selected.classification << ", retained " << selected.indices.size()
+              << ", removed " << modes.size()-selected.indices.size()
               << ", largest removed |frequency|=" << selected.largest_removed
               << ", smallest retained |frequency|=" << smallest_retained << " cm^-1\n";
     if (metadata.mode_selection == "local")

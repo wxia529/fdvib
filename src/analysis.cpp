@@ -5,15 +5,15 @@
 
 #include <algorithm>
 #include <cmath>
-#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <numeric>
-#include <regex>
 #include <sstream>
 #include <stdexcept>
 
 namespace fdvib {
+
+namespace {
 
 double norm(const Vec3 &v) { return std::sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]); }
 
@@ -47,30 +47,6 @@ void write_dynG(const fs::path &p, const QEInput &q, const std::vector<double> &
     write_text(p, o.str());
 }
 
-std::vector<Mode> parse_modes(const fs::path &p, int nat) {
-    if (nat <= 0) throw std::runtime_error("Invalid atom count while parsing modes: " + p.string());
-    std::ifstream in(p);
-    if (!in) throw std::runtime_error("Cannot read " + p.string());
-    std::regex fr(R"(freq\s*\(\s*\d+\s*\)\s*=\s*[-+0-9.EeDd]+\s*\[THz\]\s*=\s*([-+0-9.EeDd]+)\s*\[cm-1\])", std::regex::icase);
-    std::regex pair(R"(\(\s*([-+0-9.EeDd]+)\s+([-+0-9.EeDd]+)\s+([-+0-9.EeDd]+)\s+([-+0-9.EeDd]+)\s+([-+0-9.EeDd]+)\s+([-+0-9.EeDd]+)\s*\))");
-    std::vector<Mode> out; std::string line; std::smatch m;
-    while (std::getline(in, line)) if (std::regex_search(line, m, fr)) {
-        Mode mode; mode.freq = number(m[1]); mode.displacement.reserve(nat);
-        for (int i = 0; i < nat; ++i) {
-            if (!std::getline(in, line) || !std::regex_search(line, m, pair)) throw std::runtime_error("Bad eigenvector block in " + p.string());
-            mode.displacement.push_back({number(m[1]), number(m[3]), number(m[5])});
-        }
-        out.push_back(std::move(mode));
-    }
-    if (static_cast<int>(out.size()) != 3 * nat)
-        throw std::runtime_error("Expected " + std::to_string(3 * nat) + " modes, found " +
-                                 std::to_string(out.size()) + " in " + p.string());
-    return out;
-}
-
-void write_compact_molden(const fs::path &p, const DynGeometry &g,
-                          const std::vector<Mode> &modes, double zero_tol);
-
 fs::path completed_forces(const Settings &s, const std::string &id) {
     const auto marker = s.workdir / "state" / (id + ".complete");
     std::istringstream in(read_text(marker));
@@ -80,6 +56,8 @@ fs::path completed_forces(const Settings &s, const std::string &id) {
         throw std::runtime_error("Invalid displacement completion snapshot: " + marker.string());
     return s.workdir / "calculations" / calculation / "forces.dat";
 }
+
+} // namespace
 
 void analyze(const Settings &s) {
     const auto q = parse_qe_input(s.workdir / "scf.in.reference");
@@ -116,71 +94,6 @@ void analyze(const Settings &s) {
     std::cout << "Hessian max asymmetry: " << std::scientific << asym << " Ry/Bohr^2\n"
               << "Wrote " << display_path(dyn) << " and "
               << display_path(results / "dynmat.in") << "\n";
-}
-
-DynGeometry read_dyn_geometry(const fs::path &p) {
-    std::ifstream in(p); if(!in) throw std::runtime_error("Cannot read "+p.string());
-    std::string line;
-    for (int i = 0; i < 3; ++i)
-        if (!std::getline(in, line)) throw std::runtime_error("Incomplete dynG header: " + p.string());
-    std::istringstream hs(line); int ntyp,nat,ibrav; double alat; hs>>ntyp>>nat>>ibrav>>alat;
-    if(!hs||ibrav!=0||ntyp<=0||nat<=0||!(alat>0.0)) throw std::runtime_error("Unsupported dynG header");
-    if (!std::getline(in,line)) throw std::runtime_error("Incomplete dynG basis section: " + p.string());
-    for(int i=0;i<3;++i)
-        if (!std::getline(in,line)) throw std::runtime_error("Incomplete dynG basis vectors: " + p.string());
-    std::vector<double> tmass(ntyp); std::vector<std::string> tsymbol(ntyp);
-    const std::regex quoted(R"('([^']*)')");
-    for(int i=0;i<ntyp;++i){
-        if (!std::getline(in,line)) throw std::runtime_error("Incomplete dynG species block: " + p.string());
-        std::smatch match;
-        if (!std::regex_search(line, match, quoted)) throw std::runtime_error("Bad species symbol in dynG");
-        tsymbol[i]=trim(match[1]);
-        std::istringstream ls(line); std::string token, last;
-        while(ls>>token) last=token;
-        if(last.empty()) throw std::runtime_error("Bad species mass in dynG");
-        tmass[i]=number(last)/AMU_RY;
-    }
-    DynGeometry g; g.masses.resize(nat); g.r_bohr.resize(nat); g.symbols.resize(nat);
-    for(int i=0;i<nat;++i){
-        if (!std::getline(in,line)) throw std::runtime_error("Incomplete dynG atom block: " + p.string());
-        std::istringstream ls(line); int n,t; Vec3 x; ls>>n>>t>>x[0]>>x[1]>>x[2];
-        if(!ls||n!=i+1||t<1||t>ntyp||!std::isfinite(x[0])||!std::isfinite(x[1])||!std::isfinite(x[2]))
-            throw std::runtime_error("Bad atom row in dynG: " + p.string());
-        g.masses[i]=tmass.at(t-1);g.symbols[i]=tsymbol.at(t-1);for(int k=0;k<3;++k)g.r_bohr[i][k]=x[k]*alat;
-    }
-    return g;
-}
-
-void write_compact_molden(const fs::path &p, const DynGeometry &g,
-                          const std::vector<Mode> &modes, double zero_tol) {
-    std::vector<const Mode*> keep;
-    for (const auto &m : modes) {
-        double n = 0;
-        for (const auto &d : m.displacement) for (double x : d) n += x*x;
-        if (std::abs(m.freq) >= zero_tol && n > 1e-16) keep.push_back(&m);
-    }
-    std::ostringstream o;
-    o << "[Molden Format]\n[FREQ]\n" << std::fixed << std::setprecision(8);
-    for (auto m : keep) o << m->freq << '\n';
-    o << "[FR-COORD]\n";
-    for (std::size_t i=0;i<g.symbols.size();++i) o << std::setw(6) << g.symbols[i] << ' ' << std::setw(15) << g.r_bohr[i][0] << ' '
-                                    << std::setw(15) << g.r_bohr[i][1] << ' ' << std::setw(15) << g.r_bohr[i][2] << '\n';
-    o << "[FR-NORM-COORD]\n" << std::setprecision(10);
-    for (std::size_t i = 0; i < keep.size(); ++i) {
-        o << " vibration " << i+1 << '\n';
-        for (const auto &d : keep[i]->displacement) o << std::setw(15) << d[0] << ' ' << std::setw(15) << d[1] << ' ' << std::setw(15) << d[2] << '\n';
-    }
-    write_text(p, o.str());
-    std::cout << "Wrote " << keep.size() << " compact Molden modes to "
-              << display_path(p) << "\n";
-}
-
-void modes(const fs::path &results) {
-    const auto files = result_files(results, "Normal-mode analysis");
-    const auto g=read_dyn_geometry(files.dyn);
-    const auto parsed=parse_modes(files.freq,static_cast<int>(g.masses.size()));
-    const auto mold=results/(files.dyn.stem().string()+".mold");
-    write_compact_molden(mold,g,parsed,1.0e-6);
 }
 
 } // namespace fdvib

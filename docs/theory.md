@@ -155,6 +155,10 @@ frequency in cm^-1
 Negative frequencies are preserved as negative values. They represent
 imaginary modes in the usual vibrational-analysis convention.
 
+The MfakeG-compatible `.mol` writer does not perform another diagonalization.
+It combines these same `dynmat.x` frequencies and normalized displacements
+with geometry and cell information parsed from `.dynG`.
+
 ## Local calculations
 
 For `system_type = local`, FDVIB computes finite differences only for
@@ -171,7 +175,7 @@ Post-processing then decides how many frequencies to keep:
 SHM export:
   mode_selection = local   keep 3 * N_active modes
 
-GaussView vibration export:
+Molden visualization export:
   mode_selection = local   keep all nonzero parsed frequencies
 ```
 
@@ -231,7 +235,7 @@ mode_selection = local   3 * selected_atoms modes
 mode_selection = all     all nonzero modes
 ```
 
-For GaussView vibration export:
+For Molden visualization export:
 
 ```text
 mode_selection = gas     molecular internal modes
@@ -285,6 +289,7 @@ normal modes. It does not compute:
 - Born effective charges;
 - dielectric tensors.
 
-Therefore the current GaussView vibration export writes IR intensities as
-`0.0`. Nonzero IR intensities require additional electric-response information,
-which is outside the current FDVIB finite-difference force workflow.
+Therefore the MfakeG-compatible `.mol` export omits the Molden `[INT]` section
+instead of inventing zero intensities. Nonzero IR intensities require
+additional electric-response information, which is outside the current FDVIB
+finite-difference force workflow.

@@ -63,22 +63,22 @@ ModeSelection retain_largest_modes(const std::vector<Mode> &modes, std::size_t k
     std::vector<bool> removed(modes.size(), false);
     ModeSelection selected;
     selected.classification = classification;
-    selected.modes.reserve(keep);
+    selected.indices.reserve(keep);
     for (std::size_t i = 0; i < modes.size() - keep; ++i) {
         removed[order[i]] = true;
         selected.largest_removed = std::max(selected.largest_removed, std::abs(modes[order[i]].freq));
     }
     for (std::size_t i = 0; i < modes.size(); ++i)
-        if (!removed[i]) selected.modes.push_back(&modes[i]);
+        if (!removed[i]) selected.indices.push_back(i);
     return selected;
 }
 
 ModeSelection select_nonzero_modes(const std::vector<Mode> &modes, const std::string &classification) {
     ModeSelection selected;
     selected.classification = classification;
-    selected.modes.reserve(modes.size());
-    for (const auto &mode : modes)
-        if (mode.freq != 0.0) selected.modes.push_back(&mode);
+    selected.indices.reserve(modes.size());
+    for (std::size_t i = 0; i < modes.size(); ++i)
+        if (modes[i].freq != 0.0) selected.indices.push_back(i);
     return selected;
 }
 
@@ -128,11 +128,11 @@ ModeSelection select_shm_modes(const ResultMetadata &metadata,
     throw std::runtime_error("mode_selection must be all, gas, or local in metadata.dat");
 }
 
-ModeSelection select_fakeg_modes(const ResultMetadata &metadata,
-                                 const DynGeometry &geometry,
-                                 const std::vector<Mode> &modes) {
+ModeSelection select_molden_modes(const ResultMetadata &metadata,
+                                  const DynGeometry &geometry,
+                                  const std::vector<Mode> &modes) {
     if (metadata.mode_selection == "gas")
-        return select_gas_internal_modes(geometry, modes, "fake Gaussian export");
+        return select_gas_internal_modes(geometry, modes, "Molden export");
     if (metadata.mode_selection == "local" || metadata.mode_selection == "all")
         return select_nonzero_modes(modes, metadata.mode_selection);
     throw std::runtime_error("mode_selection must be all, gas, or local in metadata.dat");

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- Make `fdvib modes` write a CP2K-style, MfakeG-compatible `<prefix>.mol`
+  containing atoms, signed frequencies, normal coordinates, and periodic cell
+  vectors for `local` and `all` results; gas exports omit the simulation cell.
+- Omit the Molden `[INT]` section because FDVIB does not calculate IR
+  intensities.
+- Separate QE `.dynG` and `dynmat.x` output parsing from Hessian construction,
+  make the QE-specific reader interfaces explicit, and represent selected
+  modes by stable indices instead of non-owning pointers.
+
+### Removed
+
+- Remove the built-in `fdvib fakeg` Gaussian-like export; use MfakeG to convert
+  the generated `.mol` file for GaussView.
+
 ## [0.4.3] - 2026-06-26
 
 ### Changed
