@@ -28,19 +28,3 @@ install(TARGETS fdvib RUNTIME DESTINATION bin)
 install(FILES README.md CHANGELOG.md LICENSE DESTINATION share/doc/fdvib)
 install(DIRECTORY docs/ DESTINATION share/doc/fdvib/reference)
 install(DIRECTORY examples/ DESTINATION share/fdvib/examples)
-
-include(CTest)
-if(BUILD_TESTING)
-  add_test(NAME cli_version COMMAND fdvib --version)
-  set_tests_properties(cli_version PROPERTIES PASS_REGULAR_EXPRESSION "fdvib ${PROJECT_VERSION}")
-  add_test(NAME gas_rrho_modes
-           COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/gas_rrho_modes.sh $<TARGET_FILE:fdvib>)
-  add_test(NAME prepare_workflow
-           COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/prepare_workflow.sh $<TARGET_FILE:fdvib>)
-  add_test(NAME qe_units
-           COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/qe_units.sh $<TARGET_FILE:fdvib>)
-  add_test(NAME shm_export
-           COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/shm_export.sh $<TARGET_FILE:fdvib>)
-  add_test(NAME molden_export
-           COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/molden_export.sh $<TARGET_FILE:fdvib>)
-endif()

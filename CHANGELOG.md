@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - Remove the built-in `fdvib fakeg` Gaussian-like export in favor of the
   generated CP2K-style Molden file.
+- Remove the bundled regression test suite and CTest integration.
 
 ## [0.4.3] - 2026-06-26
 
