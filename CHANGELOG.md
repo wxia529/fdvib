@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - Make `fdvib modes` write a CP2K-style `<prefix>.mol`
   containing atoms, signed frequencies, normal coordinates, and periodic cell
-  vectors for `local` and `all` results; gas exports omit the simulation cell.
+  vectors for every mode-selection type.
 - Omit the Molden `[INT]` section because FDVIB does not calculate IR
   intensities.
 - Separate QE `.dynG` and `dynmat.x` output parsing from Hessian construction,

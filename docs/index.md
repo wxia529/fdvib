@@ -330,12 +330,13 @@ It preserves imaginary-frequency signs, includes the complete geometry, and
 writes zero displacement for frozen atoms. Re-running the command overwrites
 the generated `.mol` file.
 
-For `mode_selection=gas`, FDVIB writes only the molecular internal modes and
-omits the artificial simulation cell. For `local` and `all`, it writes every
-frequency exactly unequal to `0.0` and includes the three cell vectors in the
-Molden `[Cell]` section. Atom and `FR-COORD` coordinates are written in Bohr,
-while `[Cell]` vectors are written in Angstrom, matching the CP2K layout. The
-`[INT]` section is omitted because FDVIB does not calculate IR intensities.
+For `mode_selection=gas`, FDVIB writes only the molecular internal modes. For
+`local` and `all`, it writes every frequency exactly unequal to `0.0`. Every
+export includes the three QE cell vectors in the Molden `[Cell]` section;
+`gas` controls mode selection, not whether the underlying periodic supercell
+exists. Atom and `FR-COORD` coordinates are written in Bohr, while `[Cell]`
+vectors are written in Angstrom, matching the CP2K layout. The `[INT]` section
+is omitted because FDVIB does not calculate IR intensities.
 
 QE can also write Molden-style vibration files, but imaginary frequencies may
 be inconvenient to inspect because some viewers treat them as zero-frequency

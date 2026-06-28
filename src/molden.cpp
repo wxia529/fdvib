@@ -12,8 +12,7 @@ namespace fdvib {
 namespace {
 
 void write_molden(const fs::path &path, const DynGeometry &geometry,
-                  const std::vector<Mode> &modes, const ModeSelection &selected,
-                  bool include_cell) {
+                  const std::vector<Mode> &modes, const ModeSelection &selected) {
     std::vector<std::string> symbols;
     symbols.reserve(geometry.symbols.size());
     for (const auto &label : geometry.symbols)
@@ -21,13 +20,11 @@ void write_molden(const fs::path &path, const DynGeometry &geometry,
 
     std::ostringstream output;
     output << "[Molden Format]\n" << std::fixed << std::setprecision(8);
-    if (include_cell) {
-        output << "[Cell]\n";
-        for (const auto &vector : geometry.cell_bohr)
-            output << std::setw(15) << vector[0] * BOHR_TO_ANG
-                   << std::setw(15) << vector[1] * BOHR_TO_ANG
-                   << std::setw(15) << vector[2] * BOHR_TO_ANG << '\n';
-    }
+    output << "[Cell]\n";
+    for (const auto &vector : geometry.cell_bohr)
+        output << std::setw(15) << vector[0] * BOHR_TO_ANG
+               << std::setw(15) << vector[1] * BOHR_TO_ANG
+               << std::setw(15) << vector[2] * BOHR_TO_ANG << '\n';
     output << "[Atoms] AU\n";
     for (std::size_t i = 0; i < symbols.size(); ++i)
         output << std::setw(6) << symbols[i] << std::setw(8) << i + 1
@@ -65,7 +62,7 @@ void modes(const fs::path &results) {
     const auto metadata = result_metadata(results, false);
     const auto selected = select_molden_modes(metadata, geometry, parsed);
     const auto output = results / (files.dyn.stem().string() + ".mol");
-    write_molden(output, geometry, parsed, selected, metadata.mode_selection != "gas");
+    write_molden(output, geometry, parsed, selected);
 }
 
 } // namespace fdvib
