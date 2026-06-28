@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2026 Wanting Xia
+
 model = gas_rrho
 temperature_k = 298.15
 pressure_atm = 1.0

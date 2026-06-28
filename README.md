@@ -153,4 +153,5 @@ Release history is recorded in the [changelog](CHANGELOG.md).
 
 ## License
 
-FDVIB is distributed under the [BSD 3-Clause License](LICENSE).
+Copyright (c) 2026 Wanting Xia. FDVIB is distributed under the
+[BSD 3-Clause License](LICENSE).

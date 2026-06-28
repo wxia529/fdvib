@@ -7,7 +7,7 @@ not set `startingpot='file'`; FDVIB runs an unperturbed reference SCF and
 manages the seeded charge densities itself.
 
 - `local/`: frozen-environment local vibrations. The thermochemistry example
-  uses a 50 `cm^-1` frequency floor.
+  uses a 100 `cm^-1` frequency floor.
 - `gas/`: isolated-molecule RRHO thermochemistry. The thermochemistry example
   uses unmodified harmonic frequencies. Pressure in atm and the rotational
   symmetry number are set in `thermo.in`; multiplicity is set once in

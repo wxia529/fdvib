@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2026 Wanting Xia
+
 cmake_minimum_required(VERSION 3.12)
 project(fdvib VERSION 0.4.3 LANGUAGES CXX)
 
