@@ -155,7 +155,7 @@ frequency in cm^-1
 Negative frequencies are preserved as negative values. They represent
 imaginary modes in the usual vibrational-analysis convention.
 
-The MfakeG-compatible `.mol` writer does not perform another diagonalization.
+The CP2K-style `.mol` writer does not perform another diagonalization.
 It combines these same `dynmat.x` frequencies and normalized displacements
 with geometry and cell information parsed from `.dynG`.
 
@@ -289,7 +289,7 @@ normal modes. It does not compute:
 - Born effective charges;
 - dielectric tensors.
 
-Therefore the MfakeG-compatible `.mol` export omits the Molden `[INT]` section
+Therefore the CP2K-style `.mol` export omits the Molden `[INT]` section
 instead of inventing zero intensities. Nonzero IR intensities require
 additional electric-response information, which is outside the current FDVIB
 finite-difference force workflow.

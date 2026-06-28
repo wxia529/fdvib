@@ -10,8 +10,7 @@ FDVIB supports:
 - frozen-environment local harmonic calculations for selected atoms in a
   periodic system;
 - isolated-molecule rigid-rotor harmonic-oscillator (RRHO) thermochemistry;
-- MfakeG-compatible Molden output for normal-mode visualization and optional
-  GaussView conversion;
+- CP2K-style Molden output for normal-mode visualization;
 - Shermo-compatible `.shm` export;
 - harmonic and frequency-floor treatments of low positive frequencies.
 
@@ -23,7 +22,6 @@ calculations.
 - CMake 3.12 or later
 - A C++17 compiler
 - Quantum ESPRESSO `pw.x` and `dynmat.x`
-- MfakeG (optional, only for converting `.mol` files for GaussView)
 
 ## Build
 
@@ -153,16 +151,8 @@ Release history is recorded in the [changelog](CHANGELOG.md).
 ## Acknowledgements
 
 FDVIB uses Quantum ESPRESSO as its electronic-structure backend. The `.shm`
-interface follows the format and molecular thermochemistry workflow of
-[Shermo](http://sobereva.com/soft/shermo), developed by Dr. Tian Lu at the
-Beijing Kein Research Center for Natural Sciences and described in the cited
-work by Tian Lu and Qinxue Chen. We thank Dr. Tian Lu for answering a question
-about representing molecular vibrational frequencies in Shermo `.shm` files.
-
-FDVIB's MfakeG-compatible Molden export follows the visualization workflow
-demonstrated by Dr. Tian Lu's [MfakeG](http://sobereva.com/soft/MfakeG).
-FDVIB independently writes the `.mol` file directly from FDVIB/QE results;
-MfakeG can then convert it for GaussView.
+export follows the documented input format of
+[Shermo](http://sobereva.com/soft/shermo).
 
 ## License
 

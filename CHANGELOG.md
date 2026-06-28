@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- Make `fdvib modes` write a CP2K-style, MfakeG-compatible `<prefix>.mol`
+- Make `fdvib modes` write a CP2K-style `<prefix>.mol`
   containing atoms, signed frequencies, normal coordinates, and periodic cell
   vectors for `local` and `all` results; gas exports omit the simulation cell.
 - Omit the Molden `[INT]` section because FDVIB does not calculate IR
@@ -20,8 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Removed
 
-- Remove the built-in `fdvib fakeg` Gaussian-like export; use MfakeG to convert
-  the generated `.mol` file for GaussView.
+- Remove the built-in `fdvib fakeg` Gaussian-like export in favor of the
+  generated CP2K-style Molden file.
 
 ## [0.4.3] - 2026-06-26
 

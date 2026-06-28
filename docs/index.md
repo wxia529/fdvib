@@ -325,7 +325,7 @@ fdvib modes fdvib/results
 ```
 
 The command reads `<prefix>.dynG`, `<prefix>.freq.out`, and optional
-`metadata.dat`, then writes a CP2K-style, MfakeG-compatible `<prefix>.mol`.
+`metadata.dat`, then writes a CP2K-style `<prefix>.mol`.
 It preserves imaginary-frequency signs, includes the complete geometry, and
 writes zero displacement for frozen atoms. Re-running the command overwrites
 the generated `.mol` file.
@@ -334,51 +334,20 @@ For `mode_selection=gas`, FDVIB writes only the molecular internal modes and
 omits the artificial simulation cell. For `local` and `all`, it writes every
 frequency exactly unequal to `0.0` and includes the three cell vectors in the
 Molden `[Cell]` section. Atom and `FR-COORD` coordinates are written in Bohr,
-while `[Cell]` vectors are written in Angstrom, matching the CP2K layout used
-by MfakeG. The `[INT]` section is omitted because FDVIB does not calculate IR
-intensities.
+while `[Cell]` vectors are written in Angstrom, matching the CP2K layout. The
+`[INT]` section is omitted because FDVIB does not calculate IR intensities.
 
 QE can also write Molden-style vibration files, but imaginary frequencies may
 be inconvenient to inspect because some viewers treat them as zero-frequency
 modes. FDVIB's Molden export keeps the signed frequency values.
 
-### Difference from `dynmat.x` `filmol`
+### Why FDVIB writes its own `.mol`
 
-QE's `dynmat.x` has a `filmol` output whose default filename is
-`dynmat.mold`; see the
-[QE `INPUT_DYNMAT` reference](https://gitlab.com/QEF/q-e/blob/master/PHonon/Doc/INPUT_DYNMAT.txt).
-FDVIB's `<prefix>.mol` is deliberately not a copy of that file:
-
-| Property | `dynmat.x` `filmol` | FDVIB `<prefix>.mol` |
-|---|---|---|
-| Normal-mode data | Written directly by `dynmat.x` | Read from the same `dynmat.x` `filout` result |
-| Frequency sign | Imaginary modes may appear as `0.00` in the `filmol` output | Signed `cm^-1` values from `filout` are preserved |
-| Sections | Basic Molden frequency, coordinate, and normal-mode sections | Adds CP2K-style `[Cell]` and `[Atoms] AU` sections |
-| Cell | No MfakeG cell metadata | Written for `local` and `all`; omitted for `gas` |
-| Mode selection | QE writes the modes produced by `dynmat.x` | Gas internal modes, or all exactly nonzero modes for `local` and `all` |
-| IR intensity | Not part of the basic `filmol` mode data | `[INT]` is omitted rather than fabricated |
-| Main purpose | General Molden visualization | MfakeG-compatible conversion for GaussView |
-
-FDVIB does not diagonalize a second dynamical matrix for this export. Both
-files originate from the same `dynmat.x` calculation and use its normalized
-phonon displacements. FDVIB reads `filout`, applies the metadata-controlled
-mode selection, restores the cell and atomic metadata from `.dynG`, and writes
-the CP2K-style Molden layout.
-
-## GaussView visualization through MfakeG
-
-After generating the Molden file, convert it with
-[MfakeG](http://sobereva.com/soft/MfakeG):
-
-```bash
-fdvib modes fdvib/results
-MfakeG fdvib/results/system.mol
-```
-
-MfakeG produces the Gaussian-like visualization file that GaussView can load
-for frequency inspection and vibration animation. FDVIB does not generate or
-maintain that Gaussian-like format. Because the `.mol` file has no `[INT]`
-section, the converted visualization contains no calculated IR intensities.
+`dynmat.x` can write `dynmat.mold` through its `filmol` option. FDVIB instead
+uses the same normalized modes from `filout` and writes `<prefix>.mol` so it
+can preserve signed imaginary frequencies, include cell and atom information,
+and apply the configured mode selection. It does not perform another
+diagonalization.
 
 ## Shermo `.shm` export (recommended)
 
@@ -498,14 +467,5 @@ Changing temperature or other thermochemistry settings requires only another
 ## Acknowledgements
 
 FDVIB uses Quantum ESPRESSO as its electronic-structure backend. Its `.shm`
-interface follows the format and molecular thermochemistry workflow of
-[Shermo](http://sobereva.com/soft/shermo), developed by Dr. Tian Lu at the
-Beijing Kein Research Center for Natural Sciences and described in the work by
-Tian Lu and Qinxue Chen cited above. We thank Dr. Tian Lu for answering a
-question about representing molecular vibrational frequencies in Shermo
-`.shm` files.
-
-FDVIB's MfakeG-compatible Molden export follows the visualization workflow
-demonstrated by Dr. Tian Lu's [MfakeG](http://sobereva.com/soft/MfakeG).
-FDVIB independently writes the `.mol` file directly from FDVIB/QE results;
-MfakeG can then convert it for GaussView.
+export follows the documented input format of
+[Shermo](http://sobereva.com/soft/shermo).
