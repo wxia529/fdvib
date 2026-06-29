@@ -1,8 +1,9 @@
 # FDVIB examples
 
-The examples are configuration templates. Copy the appropriate `fdvib.in`
-and `thermo.in` into the directory containing a validated QE `scf.in`, then
-set atom indices, executable commands, and molecular metadata. `scf.in` must
+The examples are configuration templates. First make sure that `pw.x` can run
+your QE `scf.in` successfully. Then copy the appropriate `fdvib.in` and
+`thermo.in` into the same directory and set the atom indices, executable
+commands, and molecular metadata. `scf.in` must
 not set `startingpot='file'`; FDVIB runs an unperturbed reference SCF and
 manages the seeded charge densities itself.
 

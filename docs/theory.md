@@ -50,7 +50,7 @@ F = - dE/dR
 C =  d²E/dR dR = - dF/dR
 ```
 
-Implementation-wise, FDVIB stores this as a dense `3N × 3N` matrix:
+FDVIB stores this as a dense `3N × 3N` matrix:
 
 ```text
 C[row, col]
@@ -103,7 +103,7 @@ asr = 'no'
 ```
 
 FDVIB does not ask `dynmat.x` to remove acoustic modes. Rigid translations and
-rotations are handled later by the relevant post-processing model.
+rotations are handled later during analysis.
 
 For local calculations, FDVIB sets:
 
@@ -128,7 +128,7 @@ The physical normal-mode problem is the mass-weighted eigenvalue equation:
 Σ[jβ] D[iα,jβ] e_k[jβ] = λ_k e_k[iα]
 ```
 
-where the mass-weighted dynamical matrix is conceptually:
+where the mass-weighted dynamical matrix is:
 
 ```text
 D[iα,jβ] = C[iα,jβ] / sqrt(M_i M_j)
@@ -138,7 +138,7 @@ FDVIB does not diagonalize this matrix directly. It writes the QE-compatible
 `dynG` file and lets `dynmat.x` perform the mass weighting, diagonalization,
 frequency conversion, and eigenvector output.
 
-When `run_dynmat = true`, FDVIB runs `dynmat.x` and publishes:
+When `run_dynmat = true`, FDVIB runs `dynmat.x` and writes:
 
 ```text
 fdvib/results/dynmat.out
@@ -243,8 +243,8 @@ mode_selection = local   all nonzero modes
 mode_selection = all     all nonzero modes
 ```
 
-Here “nonzero” means the parsed frequency is exactly not `0.0`. Very small but
-nonzero frequencies are preserved.
+Only frequencies stored as exactly `0.0` are omitted. Very small nonzero
+frequencies are preserved.
 
 ## Thermochemistry
 

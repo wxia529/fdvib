@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Wanting Xia
 
 title: FDVIB Reference
-description: Finite-difference local vibrations and gas thermochemistry for Quantum ESPRESSO
+description: Finite-difference vibrational analysis for Quantum ESPRESSO
 theme: jekyll-theme-cayman
 lang: en
 markdown: kramdown

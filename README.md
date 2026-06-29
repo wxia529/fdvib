@@ -1,6 +1,6 @@
 # FDVIB
 
-FDVIB is a C++17 finite-difference vibration controller for
+FDVIB is a C++17 tool for finite-difference vibrational analysis with
 [Quantum ESPRESSO](https://www.quantum-espresso.org/). It generates Cartesian
 displacements, runs `pw.x`, constructs a Gamma-point dynamical matrix from
 central force differences, and can run QE's `dynmat.x`.
@@ -62,19 +62,15 @@ thermo.in    optional thermochemistry settings
 The QE input must use `ibrav=0` and explicit supported units on
 `ATOMIC_POSITIONS` and `CELL_PARAMETERS`. It must also define
 `calculation='scf'`, `tprnfor=.true.`, and an `outdir`. Do not set
-`startingpot='file'`: FDVIB
-runs one unperturbed reference SCF and seeds every displaced calculation from
-its converged charge density. FDVIB detects the charge-density representation
-written by the installed QE build.
+`startingpot='file'`: FDVIB runs one unperturbed reference SCF and seeds every
+displaced calculation from its converged charge density. FDVIB detects the
+charge-density representation written by the installed QE build.
 
 Configuration templates are available in [`examples/local`](examples/local)
 and [`examples/gas`](examples/gas). Gas calculations require
 `selected_atoms = all`, an explicit spin multiplicity, and consistent QE spin
-settings. Gas RRHO thermochemistry removes exactly five rigid-body modes for a
-linear molecule or six for a nonlinear molecule and rejects any imaginary
-frequency remaining in the true vibrational modes. Gas pressure is specified
-with `pressure_atm`, where `1 atm = 101325 Pa`; gas calculations do not use
-`zero_tolerance_cm1`.
+settings. The [reference documentation](docs/index.md) describes the supported
+input fields and thermochemistry models.
 
 ## Workflow
 
@@ -87,33 +83,16 @@ fdvib thermo fdvib/results -inp thermo.in
 fdvib shm fdvib/results
 ```
 
-The calculation command runs or resumes the reference SCF, all positive and
-negative displacement SCFs, Hessian assembly, and optional `dynmat.x`
-execution. Set `run_dynmat = true` or `false` in `fdvib.in`. Each displaced
-SCF uses its own QE `outdir` and an FDVIB-injected `startingpot='file'`.
-Displaced inputs also use `disk_io='nowf'` to avoid retaining unnecessary
-wavefunction files.
-Post-processing commands (`modes`, `thermo`, and `shm`) may be rerun;
-they overwrite only the files they generate and still reject damaged or
-incomplete inputs.
-Generated inputs use a calculation-local `outdir='./out'`. Runs are stored in
-one flat directory level, for example `calculations/init_scf_001` and
-`calculations/disp_0001_x_m_001`. An incomplete directory can be rerun there with
-`pw.x -inp pw.in` (or `pw.x -inp scf.in` for the reference).
-Completed directories are immutable snapshots and should be copied before
-manual experiments.
-Commands normally use `pw.x` from `PATH`; any file paths embedded in
-`pw_command` should be absolute because the command runs inside that directory.
-Generated local and gas inputs both use `asr='no'`; rigid-body modes are
-excluded later according to molecular degrees of freedom.
+The first command runs the reference SCF, the positive and negative
+displacements, Hessian assembly, and optionally `dynmat.x`. Running it again
+with the same input resumes from the first incomplete stage. Failed attempts
+are kept for diagnosis.
 
-Repeated calculation commands validate immutable dataset state and skip
-completed stages. Failed attempts are retained instead of overwritten.
-The stored electronic energy is the last converged `! total energy` from the
-unperturbed reference SCF, converted from Ry to Hartree without adding ZPE.
+The other three commands are independent analyses. They may be run repeatedly
+and replace only their own output files. See the reference documentation for
+restart rules, generated QE directories, and manual diagnosis.
 
-Depending on the requested calculation and analysis commands, the result
-directory contains:
+The commands above produce some or all of these files:
 
 ```text
 fdvib/results/
@@ -130,29 +109,29 @@ The output prefix may differ from `system` according to `fdvib.in`.
 
 ## Documentation
 
-See the [FDVIB reference](docs/index.md) for configuration fields, physical
-models, output definitions, restart behavior, and diagnostics.
+See the [FDVIB reference](docs/index.md) for configuration fields, output
+definitions, restart behavior, and diagnostics. The physical method is
+described in [Theory and method](docs/theory.md).
 
-**Thermochemistry post-processing**: The mature and comprehensive
-[Shermo](http://sobereva.com/soft/shermo) program is the recommended tool
-for molecular thermochemistry analysis. FDVIB's `shm` command exports
-results in Shermo's native format.
-> *Quoted from http://sobereva.com/soft/shermo:* Shermo is a free, general,
-> very easy-to-use and flexible code for calculating molecular thermochemistry
-> data based on ideal gas assumption.
+The `shm` command writes input for Shermo.
 
-> If Shermo is utilized in your work, the following paper must be cited:
-> Tian Lu, Qinxue Chen, *Shermo: A general code for calculating molecular
-> thermodynamic properties*, Comput. Theor. Chem., 1200, 113249 (2021)
-> DOI: [10.1016/j.comptc.2021.113249](https://doi.org/10.1016/j.comptc.2021.113249)
+**If Shermo is utilized in your work, the following paper must be cited:**
+
+Tian Lu, Qinxue Chen, *Shermo: A general code for calculating molecular
+thermodynamic properties*, Comput. Theor. Chem., 1200, 113249 (2021). DOI:
+[10.1016/j.comptc.2021.113249](https://doi.org/10.1016/j.comptc.2021.113249)
+
+For usage instructions and further information, see the
+[Shermo official website](http://sobereva.com/soft/shermo/).
 
 Release history is recorded in the [changelog](CHANGELOG.md).
 
-## External software
+## Acknowledgements
 
-FDVIB runs Quantum ESPRESSO for electronic-structure calculations. Its
-optional `.shm` export implements the documented input format of
-[Shermo](http://sobereva.com/soft/shermo).
+FDVIB uses [Quantum ESPRESSO](https://www.quantum-espresso.org/) as its
+electronic-structure backend, and its `.shm` exporter follows the documented
+input format of [Shermo](http://sobereva.com/soft/shermo/). We acknowledge the
+developers and contributors of both projects for their work.
 
 ## License
 
