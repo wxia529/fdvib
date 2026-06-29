@@ -1,18 +1,20 @@
 # FDVIB
 
-FDVIB is a C++17 tool for finite-difference vibrational analysis with
-[Quantum ESPRESSO](https://www.quantum-espresso.org/). It generates Cartesian
-displacements, runs `pw.x`, constructs a Gamma-point dynamical matrix from
-central force differences, and can run QE's `dynmat.x`.
+FDVIB is a C++17 tool designed for local finite-difference vibrational analysis
+in periodic systems with
+[Quantum ESPRESSO](https://www.quantum-espresso.org/). It can also treat
+isolated molecules. FDVIB generates Cartesian displacements, runs `pw.x`,
+constructs a Gamma-point dynamical matrix from central force differences, and
+can run QE's `dynmat.x`.
 
 FDVIB supports:
 
-- frozen-environment local harmonic calculations for selected atoms in a
-  periodic system;
+- local harmonic calculations for selected atoms in a periodic system;
 - isolated-molecule rigid-rotor harmonic-oscillator (RRHO) thermochemistry;
-- CP2K-style Molden output for normal-mode visualization;
+- Molden-style output for normal-mode visualization;
 - Shermo-compatible `.shm` export;
-- harmonic and frequency-floor treatments of low positive frequencies.
+- harmonic treatment of positive frequencies, with an option to raise low
+  frequencies to a configurable minimum.
 
 It is not a replacement for `ph.x`, `q2r.x`, Phonopy, or full periodic phonon
 calculations.
@@ -84,9 +86,9 @@ fdvib shm fdvib/results
 ```
 
 The first command runs the reference SCF, the positive and negative
-displacements, Hessian assembly, and optionally `dynmat.x`. Running it again
-with the same input resumes from the first incomplete stage. Failed attempts
-are kept for diagnosis.
+displacements, force-constant matrix assembly, and optionally `dynmat.x`.
+Running it again with the same input resumes from the first incomplete stage.
+Failed attempts are kept for diagnosis.
 
 The other three commands are independent analyses. They may be run repeatedly
 and replace only their own output files. See the reference documentation for

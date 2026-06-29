@@ -1,46 +1,55 @@
 # FDVIB reference
 
-FDVIB is a tool for finite-difference vibrational analysis with Quantum
-ESPRESSO. Start or resume a calculation with:
+FDVIB is designed for local vibrational analysis in periodic systems using
+finite differences of Quantum ESPRESSO forces. It displaces selected atoms
+while keeping the surrounding atoms as an unselected environment. It can
+also calculate isolated-molecule vibrations by displacing every atom.
+
+FDVIB is not a replacement for a full periodic phonon calculation with
+`ph.x`. For the equations and mode-selection rules used here, see
+[Theory and method](theory.md).
+
+## Calculation types
+
+`local` is for periodic systems or embedded models. FDVIB displaces only the
+selected atoms, which form the active region specified by `selected_atoms`.
+It constructs a local harmonic approximation for that region. The full
+structure is retained for visualization and export, but the result is not the
+complete vibrational spectrum of the periodic system.
+
+`gas` is for isolated molecules. FDVIB displaces every atom and constructs the
+full molecular force-constant matrix. Translation and rotation are removed
+during gas-mode post-processing.
+
+## Quick start
+
+Start or resume a calculation with:
 
 ```bash
 fdvib -inp fdvib.in
 ```
 
-Normal-mode visualization and thermochemistry remain separate analyses:
+Run analyses separately after `dynmat.x` results are available:
 
-```bash
-fdvib modes fdvib/results
-fdvib thermo fdvib/results -inp thermo.in
-fdvib shm fdvib/results
-```
+| Purpose | Command | Result |
+|---|---|---|
+| Visualize modes | `fdvib modes fdvib/results` | Molden-style `.mol` file |
+| Use Shermo | `fdvib shm fdvib/results` | `.shm` file for Shermo |
+| Compute thermochemistry | `fdvib thermo fdvib/results -inp thermo.in` | `thermo.dat` |
 
-For method details, see [Theory and method](theory.md).
+A typical workflow is:
 
-## Calculation model
+1. prepare and test `scf.in` with `pw.x`;
+2. prepare `fdvib.in`;
+3. run `fdvib -inp fdvib.in`;
+4. run `fdvib modes`, `fdvib shm`, or `fdvib thermo` as needed.
 
-The calculation command performs these stages in order:
+The calculation command checks the input, runs the reference SCF and all
+positive and negative displacement calculations, builds the force-constant
+matrix, and optionally runs `dynmat.x`. There is no restart option to set. Run
+the same command again to continue from the first incomplete stage.
 
-```text
-validate inputs and dataset state
-        |
-unperturbed reference SCF
-        |
-copy the converged density into each displacement attempt
-        |
-positive and negative displacement SCFs with startingpot='file'
-        |
-central finite differences and Hessian symmetrization
-        |
-Gamma-point dynG and dynmat.in
-        |
-optional dynmat.x
-```
-
-There is no restart option to set. Run the same command again: FDVIB checks
-the existing work and resumes from the first incomplete stage.
-
-## Project files
+## Required input files
 
 A calculation starts with these user files:
 
@@ -109,23 +118,23 @@ bare units, parentheses, or braces are accepted, for example
 `ATOMIC_POSITIONS {crystal}`. `crystal_sg` and omitted/deprecated default units
 are not supported. `tprnfor=.true.` is required for force extraction.
 
-Do not set this in `scf.in`:
+FDVIB first creates a reference input from the user's original `scf.in`,
+without displacing any atoms. For each displaced calculation, it then copies
+the converged reference density and inserts `startingpot='file'`. This gives
+the positive and negative displacements a consistent starting point and
+reduces unnecessary SCF work.
+
+Therefore, do not set the following value in the original `scf.in`:
 
 ```fortran
 startingpot = 'file'
 ```
 
-FDVIB rejects that value before starting a calculation. The unperturbed
-reference SCF uses the starting-potential policy from `scf.in` (normally QE's
-default atomic superposition). FDVIB injects `startingpot='file'` only into
-the generated displaced inputs.
-
-Every displaced calculation has an independent QE `outdir`. Before execution,
-FDVIB copies the converged reference charge density into that calculation's
-`<qe-prefix>.save` directory and verifies the copied data. Tasks never share a
-writable QE scratch directory. FDVIB also inserts or replaces `disk_io='nowf'`
-in displaced inputs to avoid storing wavefunction files that are not needed for
-finite-difference forces. The initial SCF retains the user's `disk_io` policy.
+FDVIB rejects it before starting. Each displaced calculation has an
+independent QE `outdir`, so calculations never share writable QE scratch data.
+FDVIB also inserts or replaces `disk_io='nowf'` because wavefunction files are
+not required for the finite-difference forces. The reference SCF retains the
+user's `disk_io` policy.
 
 The original `scf.in` should be tested independently. Tight electronic
 convergence is important because force noise directly affects frequencies.
@@ -171,21 +180,39 @@ not required.
 | `scf_input` | External QE SCF input, relative to `fdvib.in` |
 | `outdir` | FDVIB calculation directory |
 | `system_type` | `local` or `gas` |
-| `selected_atoms` | One-based active atoms, or `all` for gas |
+| `selected_atoms` | One-based selected atoms, or `all` for gas |
 | `displacement_angstrom` | Positive displacement magnitude |
 | `multiplicity` | Required positive spin multiplicity for gas |
 | `pw_command` | Complete launcher and `pw.x` command |
 | `prefix` | FDVIB result filename prefix |
-| `run_dynmat` | Required logical controlling `dynmat.x` execution |
+| `run_dynmat` | Whether to run `dynmat.x` after building the force-constant matrix |
 | `dynmat_command` | Complete `dynmat.x` command |
+
+The FDVIB `prefix` is not the QE `prefix`. QE's `prefix` names the
+`<qe-prefix>.save` directory used by `pw.x`. The FDVIB `prefix` names result
+files such as `system.dynG`, `system.freq.out`, and `system.shm`. The two values
+do not need to match.
 
 For gas calculations, the QE spin settings must agree with multiplicity. A
 non-singlet requires `nspin=2` and
 `tot_magnetization=multiplicity-1`.
 
-## Initial SCF and displacement calculations
+## What happens during a calculation
 
-All external calculation runs use one flat directory level:
+The calculation proceeds in five stages:
+
+1. run one reference SCF at the input geometry;
+2. run positive and negative displacements for every selected Cartesian
+   coordinate;
+3. obtain the Cartesian force-constant matrix from the force differences;
+4. write a QE-compatible Gamma-point dynamical-matrix file and `dynmat.in`;
+5. run `dynmat.x` when `run_dynmat=true`.
+
+For each selected displacement, the positive and negative force calculations
+provide one column of the force-constant matrix. The exact matrix definition
+and sign convention are given in [Theory and method](theory.md).
+
+Each QE attempt has its own directory directly under `fdvib/calculations/`:
 
 ```text
 fdvib/calculations/
@@ -213,46 +240,51 @@ directory completed successfully and checks its files before reusing it.
 
 The initial SCF is accepted only after QE exits successfully, reports
 `JOB DONE`, reaches SCF convergence, prints one total force for every atom, and
-writes a nonempty charge-density file. For PAW calculations, the accompanying
-`paw.txt` is also checked on restart.
-FDVIB reads the last `! total energy = ... Ry` record from the unperturbed
-reference SCF, divides it by two to convert Rydberg to Hartree, and stores the
-pure reference value in result metadata. It does not use a displaced energy or
-add ZPE. For calculations using electronic smearing, the QE total energy can
-contain a smearing contribution; isolated-molecule inputs should avoid
-artificial electronic-temperature contributions.
+writes a nonempty charge-density file. For PAW calculations, FDVIB also checks
+`paw.txt` on restart.
+
+FDVIB stores the last `! total energy = ... Ry` value from the unperturbed SCF
+and converts it from Rydberg to Hartree. Displaced energies and ZPE are not
+included. This is expected: FDVIB obtains force constants from force
+differences, not from displaced total-energy differences. ZPE and thermal
+corrections are computed later by `fdvib thermo` or by Shermo. If the QE
+calculation uses electronic smearing, the reported total energy may include a
+smearing contribution. This is usually undesirable for an isolated molecule.
 
 A failed or interrupted calculation remains available for diagnosis. The next
 run creates a new numbered directory and starts again from the reference
 density.
 
-Generated `scf.in` and `pw.in` files are self-contained for diagnosis: FDVIB
-starts QE inside each attempt directory, uses `outdir='./out'`, rewrites
-relative `pseudo_dir` paths for that location, and redirects `wfcdir` to the
-same isolated `./out`. Users can enter an attempt directory and run
-`pw.x -inp pw.in` directly. Copy a completed directory before experimenting
-with it. If an interrupted FDVIB process left behind a complete QE result,
-FDVIB can check and reuse it on the next run.
+Generated `scf.in` and `pw.in` files can be rerun from their attempt
+directories. FDVIB makes this possible by:
 
-Because `pw_command` is executed from the calculation directory, executables and
-auxiliary files named in that command must either be discoverable through the
-environment (for example `pw.x` on `PATH`) or use absolute paths.
+- starting QE inside the attempt directory;
+- setting `outdir='./out'`;
+- rewriting a relative `pseudo_dir` for the new location;
+- redirecting `wfcdir` to the same `./out` directory.
+
+Enter an attempt directory and run `pw.x -inp pw.in` to diagnose a displaced
+calculation. Use `pw.x -inp scf.in` for the initial SCF. Copy a completed
+directory before experimenting with it. If FDVIB was interrupted after QE
+finished, the next run can check and reuse that result.
+
+`pw_command` also runs inside the attempt directory. Programs such as `pw.x`
+must therefore be available on `PATH`, and other file paths in the command
+should be absolute.
 
 In each `pw.out`, FDVIB reads the total-force table below the final
 `Forces acting on atoms` heading. It ignores later tables that list individual
 force contributions. A usable output must contain one total force for every
 atom and `JOB DONE`, with no SCF non-convergence or QE error message.
 
-## Hessian and QE dynamical matrix
+## Main calculation outputs
 
-For the active atom set, FDVIB evaluates the central finite difference:
+FDVIB builds the force-constant matrix from the positive and negative force
+calculations. It reports the maximum antisymmetric component before
+symmetrizing the matrix, which helps identify noisy or poorly converged
+forces.
 
-```text
-H[jβ,iα] = - (F[jβ](+δ[iα]) - F[jβ](-δ[iα])) / (2δ)
-```
-
-It reports the maximum antisymmetric component before symmetrization, then
-writes:
+The calculation then writes:
 
 ```text
 fdvib/results/<prefix>.dynG
@@ -260,12 +292,18 @@ fdvib/results/dynmat.in
 fdvib/results/metadata.dat
 ```
 
-Local calculations set `remove_interaction_blocks=.true.`. Gas calculations
-retain the complete molecular Hessian. Both use `asr='no'`; rigid translations
-and rotations are handled later during analysis.
+`<prefix>.dynG` is generated by FDVIB from the finite-difference force
+constants. It uses a QE-compatible Gamma-point dynamical-matrix format, but it
+is not output from `ph.x`.
 
-With `run_dynmat=true`, FDVIB runs `dynmat_command` in an isolated attempt,
-parses all `3N` frequencies and eigenvectors, and writes:
+Local calculations set `remove_interaction_blocks=.true.`; see
+[Theory and method](theory.md#qe-dynamical-matrix-file) for how the zero-padded
+local matrix is handled during QE post-processing. Gas calculations retain the
+complete molecular force-constant matrix. Both use `asr='no'`; rigid
+translations and rotations are handled later during analysis.
+
+With `run_dynmat=true`, FDVIB runs `dynmat_command`, parses all `3N` frequencies
+and eigenvectors, and writes:
 
 ```text
 fdvib/results/dynmat.out
@@ -274,75 +312,8 @@ fdvib/results/<prefix>.freq.out
 
 With `run_dynmat=false`, calculation stops after `dynG` and `dynmat.in`.
 Changing only this setting to `true` and repeating `fdvib -inp fdvib.in`
-skips reference, displacement, and Hessian stages and runs only `dynmat.x`.
-
-## Result metadata
-
-FDVIB writes result-level metadata to:
-
-```text
-fdvib/results/metadata.dat
-```
-
-This file records post-processing information that is not contained in
-`<prefix>.dynG` or `<prefix>.freq.out`:
-
-```text
-program = qe
-mode_selection = gas
-electronic_energy_hartree = -76.0
-multiplicity = 1
-selected_atoms = all
-```
-
-`program` is reserved for source-program dispatch; the current reader accepts
-only `qe`. `mode_selection` controls how exporters select frequencies:
-`all` writes all nonzero frequencies, `gas` removes rigid translations and
-rotations by molecular geometry, and `local` keeps `3 * selected_atoms` modes
-for SHM export. `electronic_energy_hartree` is the unperturbed SCF energy used
-by `.shm`; if the field is absent, SHM writes `0.0`. `multiplicity` is written
-as the ground-state electronic degeneracy in `.shm`. `selected_atoms` records
-the one-based active atom list or `all`.
-
-The file is generated by the calculation workflow. Users may edit it before
-running post-processing commands when they intentionally want to change export
-metadata, for example `mode_selection`, `multiplicity`, or the electronic
-energy used in `.shm`. Editing `metadata.dat` does not change the completed
-force calculation or the Hessian; it only affects later exports. If
-`metadata.dat` is missing, exporters use these defaults:
-`program=qe`, `mode_selection=all`, `multiplicity=1`, and
-`electronic_energy_hartree=0.0`.
-
-## State and recovery
-
-To continue an interrupted calculation, run the same `fdvib -inp fdvib.in`
-command again with the same `outdir`. FDVIB checks that existing results belong
-to the same calculation before reusing them.
-
-You may change execution-only settings such as `pw_command`, `dynmat_command`,
-and `run_dynmat`. For example, a calculation first run with
-`run_dynmat=false` can later be rerun with `run_dynmat=true`; completed SCF and
-Hessian stages are reused and only `dynmat.x` is added.
-
-Do not reuse the same `outdir` after changing `scf.in`, `system_type`,
-`selected_atoms`, `displacement_angstrom`, `multiplicity`, or the FDVIB result
-`prefix`. Choose a new `outdir` for that new calculation. This prevents results
-from two different physical setups from being mixed. The internal
-`fdvib/state/dataset.state` file records the original calculation settings for
-this check and should not be edited.
-
-FDVIB prevents two processes from writing to the same `outdir` at the same
-time. Before reusing a completed stage, it checks that the recorded files are
-still present and unchanged. Restart behavior is summarized below:
-
-| State | Behavior |
-|---|---|
-| No attempt | Run it |
-| Failed or interrupted attempt | Preserve it and create a new attempt |
-| Valid completed stage | Skip it |
-| Complete marker with missing or changed result | Stop and report corruption |
-| Fully written result without final marker | Validate and recover the marker |
-| Partial uncommitted publication | Preserve it under `fdvib/failed` and retry |
+skips reference, displacement, and force-constant stages and runs only
+`dynmat.x`.
 
 ## Normal-mode analysis
 
@@ -353,17 +324,18 @@ fdvib modes fdvib/results
 ```
 
 The command reads `<prefix>.dynG`, `<prefix>.freq.out`, and the optional
-`metadata.dat`, then writes a CP2K-style `<prefix>.mol`.
+`metadata.dat`, then writes a Molden-style `<prefix>.mol` using the same
+coordinate and cell layout convention as CP2K.
 It preserves imaginary-frequency signs, includes the complete geometry, and
-writes zero displacement for frozen atoms. Re-running the command overwrites
-the generated `.mol` file.
+writes zero displacement for unselected environment atoms. Re-running the
+command overwrites the generated `.mol` file.
 
 For `mode_selection=gas`, FDVIB writes only the molecular internal modes. For
 `local` and `all`, only frequencies stored as exactly `0.0` are omitted; small
 nonzero frequencies are retained. Every export includes the three QE cell
-vectors in the Molden `[Cell]` section;
-`gas` controls mode selection, not whether the underlying periodic supercell
-exists. Atom and `FR-COORD` coordinates are written in Bohr, while `[Cell]`
+vectors in the Molden `[Cell]` section. The `gas` setting changes only the
+selected modes; it does not remove the QE supercell. Atom and `FR-COORD`
+coordinates are written in Bohr, while `[Cell]`
 vectors are written in Angstrom, matching the CP2K layout. The `[INT]` section
 is omitted because FDVIB does not calculate IR intensities.
 
@@ -392,26 +364,24 @@ For usage instructions and further information, see the
 [Shermo official website](http://sobereva.com/soft/shermo/).
 
 The command requires exactly one `<prefix>.dynG` and one `<prefix>.freq.out`.
-It also reads `metadata.dat` when present; see the result metadata section for
-the recorded fields and defaults. The default `all` mode writes every nonzero
-frequency and omits only frequencies exactly equal to `0.0`.
+It also reads `metadata.dat` when present; see
+[Result metadata](#result-metadata) for the recorded fields and defaults. The
+default `all` mode writes every nonzero frequency and omits only frequencies
+exactly equal to `0.0`.
 
 The command writes `<prefix>.shm` with electronic energy, wavenumbers, atoms,
 and electronic levels. Coordinates are written in Angstrom, masses in amu, and
 the ground-state electronic degeneracy is the configured multiplicity.
 
 QE species labels such as `C1` or `O_ads` are reduced to their leading
-standard element symbol; labels that cannot be mapped to H--Og are rejected.
+standard element symbol. Labels that cannot be mapped to an element from H
+through Og are rejected.
 
-For gas systems, FDVIB uses the same inertia threshold as Shermo to classify
-an atom, linear molecule, or nonlinear molecule. It removes the 3, 5, or 6
-frequencies closest to zero and writes the remaining internal vibrations:
-
-```text
-atom       0 modes
-linear     3N-5 modes
-nonlinear  3N-6 modes
-```
+For gas systems, FDVIB uses the principal moments of inertia to classify an
+atom, linear molecule, or nonlinear molecule. It removes the 3, 5, or 6
+frequencies closest to zero, respectively, and writes the remaining internal
+vibrations. The detailed selection rule is given in
+[Theory and method](theory.md#gas-calculations).
 
 Numerically split degenerate modes are preserved as separate original
 frequencies. For example, the two CO2 bending components are both written;
@@ -424,19 +394,28 @@ frequency. If these groups are not clearly separated, inspect the modes and
 improve geometry/force convergence before using the thermochemistry; a very
 soft true vibration can otherwise be confused with a residual rigid mode.
 
-For local systems, FDVIB discards the `3(N-N_active)` modes closest to zero,
-writes the remaining `3N_active` modes and all atoms. Run Shermo as:
+For a local system with $N_{\mathrm{active}}$ selected atoms, FDVIB removes
+the modes closest to zero until $3N_{\mathrm{active}}$ remain, then writes
+those modes and all atoms to the SHM file. Run Shermo as:
 
 ```bash
 Shermo fdvib/results/system.shm -imode 1 -PGlabel C1
 ```
 
-For gas `.shm` files, run Shermo directly according to your target
-analysis and the Shermo documentation, for example:
+Here `-imode 1` is used for the local vibrational treatment, while
+`-PGlabel C1` avoids assigning molecular symmetry to the periodic structure.
+
+The resulting Shermo correction is a local vibrational correction for the
+selected active region, not the thermochemistry of the full periodic
+structure.
+
+For gas `.shm` files, Shermo can usually be run directly:
 
 ```bash
 Shermo fdvib/results/molecule.shm
 ```
+
+Additional Shermo options are described on its official website.
 
 Re-running the command safely replaces the previously generated `.shm` file.
 
@@ -470,18 +449,89 @@ rotor_type = auto
 low_frequency_model = harmonic
 ```
 
-Local analysis reports vibrational ZPE, internal energy, entropy, and free
-energy. Gas RRHO additionally includes translation, rotation, and electronic
-degeneracy. It removes three rigid modes for an atom, five for a linear
-molecule, or six for a nonlinear molecule, then rejects any remaining
-non-positive vibrational frequency. Gas RRHO requires `metadata.dat` with
-`mode_selection = gas` so the spin multiplicity is unambiguous. Results are
-written to `fdvib/results/thermo.dat`. The file reports each energy table in eV,
+`local_harmonic` reports ZPE, internal energy, entropy, and free energy from
+the selected local vibrational modes only. It does not include translation or
+rotation of the full periodic system. `gas_rrho` uses the rigid-rotor
+harmonic-oscillator model and includes translational, rotational, vibrational,
+and electronic-degeneracy contributions. It removes three rigid modes for an
+atom, five for a linear molecule, or six for a nonlinear molecule, then
+rejects any remaining non-positive vibrational frequency. Gas RRHO requires
+`metadata.dat` with
+`mode_selection = gas`. The same file supplies the multiplicity used when
+`electronic_degeneracy = auto`. Results are written to
+`fdvib/results/thermo.dat`. The file reports each energy table in eV,
 kcal/mol, and kJ/mol; the corresponding entropy units are eV/K,
 kcal/(mol K), and kJ/(mol K).
 
 Changing temperature or other thermochemistry settings requires only another
 `fdvib thermo` command; it never reruns the electronic-structure calculation.
+
+## State and recovery
+
+To continue an interrupted calculation, run the same `fdvib -inp fdvib.in`
+command again with the same `outdir`. FDVIB checks that existing results belong
+to the same calculation before reusing them.
+
+You may change execution-only settings such as `pw_command`, `dynmat_command`,
+and `run_dynmat`. For example, a calculation first run with
+`run_dynmat=false` can later be rerun with `run_dynmat=true`; completed SCF and
+force-constant stages are reused and only `dynmat.x` is added.
+
+Do not reuse the same `outdir` after changing `scf.in`, `system_type`,
+`selected_atoms`, `displacement_angstrom`, `multiplicity`, or the FDVIB result
+`prefix`. Choose a new `outdir` so results from different physical setups are
+not mixed. The internal `fdvib/state/dataset.state` records the original
+settings for this check and should not be edited.
+
+FDVIB prevents two processes from writing to the same `outdir` at the same
+time. Before reusing a completed stage, it checks that the recorded files are
+still present and unchanged.
+
+| Situation | What FDVIB does |
+|---|---|
+| The stage has not started | Run it |
+| A previous attempt failed or was interrupted | Keep that directory and start a numbered retry |
+| The recorded result is complete and unchanged | Skip the stage |
+| A previously completed file is missing or changed | Stop and report the affected file |
+| QE finished before FDVIB was interrupted | Check the files and reuse the result if valid |
+| Incomplete files were left in `results/` | Move them to `fdvib/failed` and rebuild them |
+
+## Result metadata
+
+FDVIB writes post-processing settings to:
+
+```text
+fdvib/results/metadata.dat
+```
+
+The file supplements information in `<prefix>.dynG` and
+`<prefix>.freq.out`:
+
+```text
+program = qe
+mode_selection = gas
+electronic_energy_hartree = -76.0
+multiplicity = 1
+selected_atoms = all
+```
+
+| Field | Meaning |
+|---|---|
+| `program` | Electronic-structure program; currently only `qe` is supported |
+| `mode_selection` | Selects modes for later analysis; the rules are described in [Theory and method](theory.md#export-mode-selection) |
+| `electronic_energy_hartree` | Unperturbed SCF energy written to `.shm`; SHM uses `0.0` if it is absent |
+| `multiplicity` | Ground-state electronic degeneracy written to `.shm` |
+| `selected_atoms` | One-based selected atom list, or `all` |
+
+The `program` field is reserved for future support of other
+electronic-structure programs.
+
+The calculation command generates this file. You may edit `mode_selection`,
+`multiplicity`, or `electronic_energy_hartree` before running an analysis
+command. These changes affect post-processing only; they do not alter the
+completed force calculation or the force-constant matrix. If `metadata.dat`
+is missing, the defaults are `program=qe`, `mode_selection=all`,
+`multiplicity=1`, and `electronic_energy_hartree=0.0`.
 
 ## Acknowledgements
 

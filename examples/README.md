@@ -2,13 +2,13 @@
 
 The examples are configuration templates. First make sure that `pw.x` can run
 your QE `scf.in` successfully. Then copy the appropriate `fdvib.in` and
-`thermo.in` into the same directory and set the atom indices, executable
-commands, and molecular metadata. `scf.in` must
+`thermo.in` into the same directory and set the atom indices, execution
+commands, and other options required for your system. `scf.in` must
 not set `startingpot='file'`; FDVIB runs an unperturbed reference SCF and
 manages the seeded charge densities itself.
 
-- `local/`: frozen-environment local vibrations. The thermochemistry example
-  uses a 100 `cm^-1` frequency floor.
+- `local/`: local vibrations for selected atoms in a periodic environment. The
+  thermochemistry example uses a $100\ \mathrm{cm}^{-1}$ frequency floor.
 - `gas/`: isolated-molecule RRHO thermochemistry. The thermochemistry example
   uses unmodified harmonic frequencies. Pressure in atm and the rotational
   symmetry number are set in `thermo.in`; multiplicity is set once in

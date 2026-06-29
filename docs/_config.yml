@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Wanting Xia
 
 title: FDVIB Reference
-description: Finite-difference vibrational analysis for Quantum ESPRESSO
+description: Local finite-difference vibrational analysis for Quantum ESPRESSO, with isolated-molecule support
 theme: jekyll-theme-cayman
 lang: en
 markdown: kramdown
