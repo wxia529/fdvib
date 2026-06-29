@@ -47,14 +47,31 @@ A typical user working directory starts with:
 
 ```text
 case_directory/
-|-- scf.in
-|-- fdvib.in
+|-- scf.in          original QE input written by the user
+|-- fdvib.in        FDVIB settings
 `-- thermo.in       optional, used only by the separate thermo command
 ```
 
-`scf.in` stays external; it is not embedded in `fdvib.in`. During execution
-FDVIB creates its own `fdvib/calculations/` subdirectory for generated QE
-attempts; that internal name is separate from the user's working directory.
+Place the original QE input at `case_directory/scf.in`, next to `fdvib.in`.
+Point to it from `fdvib.in` with:
+
+```text
+scf_input = scf.in
+outdir = fdvib
+```
+
+A relative `scf_input` path is resolved from the directory containing
+`fdvib.in`, not from the shell's current directory. For example, both of these
+commands read `case_directory/scf.in`:
+
+```bash
+cd case_directory && fdvib -inp fdvib.in
+fdvib -inp /path/to/case_directory/fdvib.in
+```
+
+FDVIB reads the original `scf.in` but does not modify it. Generated QE inputs
+and outputs are placed under `case_directory/fdvib/calculations/`, for example
+`init_scf_001/scf.in` and `disp_0001_x_p_001/pw.in`.
 
 ## QE input requirements
 
@@ -219,9 +236,11 @@ Because `pw_command` is executed from the calculation directory, executables and
 auxiliary files named in that command must either be discoverable through the
 environment (for example `pw.x` on `PATH`) or use absolute paths.
 
-FDVIB validates the total-force block, ignoring later decomposed force blocks
-printed by some QE features. A successful task requires exactly `nat` total
-forces and `JOB DONE` without an SCF non-convergence diagnostic.
+In each `pw.out`, FDVIB reads the atom-force lines immediately below the last
+`Forces acting on atoms` heading. The block must contain one force for every
+atom. Separate tables that break forces into individual contributions are not
+used. The output must also contain `JOB DONE` and must not contain
+`convergence NOT achieved` or `Error in routine`.
 
 ## Hessian and QE dynamical matrix
 
@@ -295,10 +314,21 @@ force calculation or the Hessian; it only affects later exports. If
 
 ## State and recovery
 
-`fdvib/state/dataset.state` fingerprints the SCF input and scientific dataset.
-Changing geometry, selected atoms, displacement, system type, multiplicity, or
-result prefix causes a hard error; use a different `outdir` for a new dataset.
-Execution commands and `run_dynmat` are not part of that immutable identity.
+To continue an interrupted calculation, run the same `fdvib -inp fdvib.in`
+command again with the same `outdir`. FDVIB checks that existing results belong
+to the same calculation before reusing them.
+
+You may change execution-only settings such as `pw_command`, `dynmat_command`,
+and `run_dynmat`. For example, a calculation first run with
+`run_dynmat=false` can later be rerun with `run_dynmat=true`; completed SCF and
+Hessian stages are reused and only `dynmat.x` is added.
+
+Do not reuse the same `outdir` after changing `scf.in`, `system_type`,
+`selected_atoms`, `displacement_angstrom`, `multiplicity`, or the FDVIB result
+`prefix`. Choose a new `outdir` for that new calculation. This prevents results
+from two different physical setups from being mixed. The internal
+`fdvib/state/dataset.state` file records the original calculation settings for
+this check and should not be edited.
 
 The calculation holds an operating-system lock at `<outdir>.lock`, preventing
 two FDVIB processes from writing the same dataset concurrently. The lock is
@@ -465,8 +495,8 @@ kcal/(mol K), and kJ/(mol K).
 Changing temperature or other thermochemistry settings requires only another
 `fdvib thermo` command; it never reruns the electronic-structure calculation.
 
-## Acknowledgements
+## External software
 
-FDVIB uses Quantum ESPRESSO as its electronic-structure backend. Its `.shm`
-export follows the documented input format of
+FDVIB runs Quantum ESPRESSO for electronic-structure calculations. Its
+optional `.shm` export implements the documented input format of
 [Shermo](http://sobereva.com/soft/shermo).

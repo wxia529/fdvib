@@ -148,10 +148,10 @@ results in Shermo's native format.
 
 Release history is recorded in the [changelog](CHANGELOG.md).
 
-## Acknowledgements
+## External software
 
-FDVIB uses Quantum ESPRESSO as its electronic-structure backend. The `.shm`
-export follows the documented input format of
+FDVIB runs Quantum ESPRESSO for electronic-structure calculations. Its
+optional `.shm` export implements the documented input format of
 [Shermo](http://sobereva.com/soft/shermo).
 
 ## License
