@@ -163,7 +163,7 @@ Local periodic example:
 scf_input = scf.in
 outdir = fdvib
 system_type = local
-selected_atoms = 65,66,67
+selected_atoms = 1,2,3
 displacement_angstrom = 0.01
 pw_command = mpirun -np 8 pw.x
 prefix = system

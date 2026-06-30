@@ -27,7 +27,7 @@ std::string input_template(const std::string &type) {
     if (type == "local") {
         return "# Replace selected_atoms with one-based QE atom indices.\n" + common +
                "system_type = local\n"
-               "selected_atoms = 1\n" + execution_settings("system");
+               "selected_atoms = 1,2,3\n" + execution_settings("system");
     }
     if (type == "gas") {
         return "# Set multiplicity to the molecular spin multiplicity.\n" + common +
