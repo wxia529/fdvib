@@ -39,8 +39,9 @@ Run analyses separately after `dynmat.x` results are available:
 
 A typical workflow is:
 
-1. prepare and test `scf.in` with `pw.x`;
-2. prepare `fdvib.in`;
+1. prepare and test the QE SCF input with `pw.x`;
+2. run `fdvib init local` or `fdvib init gas`, then edit the generated
+   `fdvib.in`;
 3. run `fdvib -inp fdvib.in`;
 4. run `fdvib modes`, `fdvib shm`, or `fdvib thermo` as needed.
 
@@ -59,6 +60,21 @@ case_directory/
 |-- fdvib.in        FDVIB calculation settings
 `-- thermo.in       optional, used only by the separate thermo command
 ```
+
+The tree uses `scf.in` as an example. The QE input may have any filename as
+long as `scf_input` in `fdvib.in` points to it.
+
+To create a starter `fdvib.in` in the current directory, run one of:
+
+```bash
+fdvib init local
+fdvib init gas
+```
+
+The command creates only `fdvib.in`; it does not create `scf.in` or
+`thermo.in`. It refuses to overwrite an existing `fdvib.in`. The generated
+`scf_input = scf.in` is only a default; change it if the QE input has another
+name.
 
 In `fdvib.in`, `scf_input = scf.in` means the `scf.in` beside `fdvib.in`:
 

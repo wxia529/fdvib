@@ -2,10 +2,11 @@
 # Copyright (c) 2026 Wanting Xia
 
 cmake_minimum_required(VERSION 3.12)
-project(fdvib VERSION 1.0.0 LANGUAGES CXX)
+project(fdvib VERSION 1.0.2 LANGUAGES CXX)
 
 add_executable(fdvib
   src/main.cpp
+  src/init.cpp
   src/common.cpp
   src/qe_input.cpp
   src/qe_output.cpp

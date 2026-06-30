@@ -1,11 +1,11 @@
 # FDVIB examples
 
-The examples are configuration templates. First make sure that `pw.x` can run
-your QE `scf.in` successfully. Then copy the appropriate `fdvib.in` and
-`thermo.in` into the same directory and set the atom indices, execution
-commands, and other options required for your system. `scf.in` must
-not set `startingpot='file'`; FDVIB runs an unperturbed reference SCF and
-manages the seeded charge densities itself.
+The examples use `scf.in` as the QE input filename, but `scf_input` may point
+to any filename. First make sure that `pw.x` can run your QE input successfully.
+Then copy the appropriate `fdvib.in` and `thermo.in` into the same directory
+and set the atom indices, execution commands, and other options required for
+your system. The QE input must not set `startingpot='file'`; FDVIB runs an
+unperturbed reference SCF and manages the seeded charge densities itself.
 
 - `local/`: local vibrations for selected atoms in a periodic environment. The
   thermochemistry example uses a $100\ \mathrm{cm}^{-1}$ frequency floor.

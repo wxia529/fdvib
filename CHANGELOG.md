@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-07-01
+
+### Added
+
+- Add `fdvib init local|gas` to create a starter `fdvib.in` without
+  overwriting an existing file.
+
+### Changed
+
+- Order `--help` commands by setup, calculation, and post-processing workflow.
+
+### Fixed
+
+- Load MathJax through the Jekyll theme so formulas render correctly on the
+  GitHub Pages site.
+
 ## [1.0.0] - 2026-06-29
 
 ### Changed
@@ -247,7 +263,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Tag-triggered Linux release packaging through GitHub Actions.
 - BSD 3-Clause licensing.
 
-[Unreleased]: https://github.com/wxia529/fdvib/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/wxia529/fdvib/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/wxia529/fdvib/compare/v1.0.0...v1.0.2
 [1.0.0]: https://github.com/wxia529/fdvib/compare/v0.4.3...v1.0.0
 [0.4.3]: https://github.com/wxia529/fdvib/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/wxia529/fdvib/compare/v0.4.1...v0.4.2

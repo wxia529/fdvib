@@ -53,13 +53,27 @@ install fdvib-X.Y.Z-linux-x86_64-glibc-2.17/bin/fdvib "$HOME/.local/bin/fdvib"
 
 ## Input
 
-A calculation directory contains:
+A typical calculation directory contains:
 
 ```text
 scf.in       Quantum ESPRESSO SCF input
 fdvib.in     displacement and execution settings
 thermo.in    optional thermochemistry settings
 ```
+
+The QE input does not have to be named `scf.in`; set `scf_input` in
+`fdvib.in` to the actual filename.
+
+Create a starter `fdvib.in` in the current directory with:
+
+```sh
+fdvib init local
+# or
+fdvib init gas
+```
+
+The command creates only `fdvib.in` and refuses to overwrite an existing
+file. Review the generated settings before starting a calculation.
 
 The QE input must use `ibrav=0` and explicit supported units on
 `ATOMIC_POSITIONS` and `CELL_PARAMETERS`. It must also define

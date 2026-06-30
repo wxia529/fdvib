@@ -152,6 +152,7 @@ std::vector<Mode> read_qe_dynmat_modes(const fs::path &path, int nat);
 DynGeometry read_qe_dyn_geometry(const fs::path &path);
 
 void analyze(const Settings &s);
+void initialize_input(const std::string &type, const fs::path &directory);
 void calculate(const Settings &s);
 void modes(const fs::path &results);
 void thermo(const fs::path &results, const fs::path &thermo_input);
