@@ -151,6 +151,8 @@ independent QE `outdir`, so calculations never share writable QE scratch data.
 FDVIB also inserts or replaces `disk_io='minimal'` for displaced calculations.
 This keeps only QE's XML data at convergence; wavefunction and charge-density
 files from those calculations are not needed for the finite-difference forces.
+After validating a displacement and recording its completion snapshot, FDVIB
+deletes the copied reference charge-density file from that calculation.
 The reference SCF retains the user's `disk_io` policy because its converged
 charge density is used to initialize every displacement.
 

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-07-06
+
+### Changed
+
+- Remove the copied reference charge-density file after each displacement has
+  been validated and recorded as complete.
+
 ## [1.0.3] - 2026-07-06
 
 ### Changed

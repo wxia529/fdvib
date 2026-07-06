@@ -75,6 +75,19 @@ fs::path density_file(const fs::path &attempt, const std::string &prefix) {
     return found.front();
 }
 
+void remove_displacement_density(const fs::path &attempt, const std::string &prefix,
+                                 const fs::path &reference_density) {
+    const auto copied = attempt / "out" / (prefix + ".save") / reference_density.filename();
+    std::error_code error;
+    const bool removed = fs::remove(copied, error);
+    if (error)
+        throw std::runtime_error("Cannot remove completed displacement charge density " +
+                                 copied.string() + ": " + error.message());
+    if (!removed && fs::exists(copied))
+        throw std::runtime_error("Cannot remove completed displacement charge density: " +
+                                 copied.string());
+}
+
 std::vector<int> selected_atoms(const Settings &s, int nat) {
     auto selected = s.selected;
     if (s.system_type == "gas") {
@@ -227,28 +240,31 @@ void run_displacements(const Settings &s, const QEInput &q,
             if (!fs::is_regular_file(forces) || file_digest(forces) != digest)
                 throw std::runtime_error("Completed force data is missing or modified: " + forces.string());
             (void)parsed;
+            remove_displacement_density(attempt, q.prefix, reference.density);
             ++preserved;
             continue;
         }
-        const auto commit = [&](const fs::path &calculation, bool recovered) {
+        const auto commit = [&](const fs::path &calculation) {
             const auto output = calculation / "pw.out";
             const auto forces = calculation / "forces.dat";
             const auto parsed = parse_forces(output, q.nat);
             write_forces(forces, parsed, output);
             write_text(marker, calculation.filename().string() + " " + file_digest(forces) + "\n");
-            if (recovered) std::cout << "Recovered completed " << id << " from " << calculation.filename().string() << '\n';
         };
-        bool recovered = false;
+        fs::path recovered;
         for (const auto &calculation : numbered_directories(calculations, id)) {
             try {
-                commit(calculation, true);
-                recovered = true;
+                commit(calculation);
+                recovered = calculation;
                 break;
             } catch (const std::exception &) {
                 // Retain incomplete calculations and try a fresh numbered directory below.
             }
         }
-        if (recovered) {
+        if (!recovered.empty()) {
+            remove_displacement_density(recovered, q.prefix, reference.density);
+            std::cout << "Recovered completed " << id << " from "
+                      << recovered.filename().string() << '\n';
             ++completed;
             continue;
         }
@@ -271,7 +287,8 @@ void run_displacements(const Settings &s, const QEInput &q,
         std::cout << "Running " << id << std::endl;
         const int rc = shell_run(cmd, attempt, "pw.out");
         if (rc != 0) throw std::runtime_error(id + " failed with exit code " + std::to_string(rc));
-        commit(attempt, false);
+        commit(attempt);
+        remove_displacement_density(attempt, q.prefix, reference.density);
         ++completed;
     }
     std::cout << "Completed " << completed << ", preserved " << preserved << " displacement jobs\n";
