@@ -274,7 +274,7 @@ std::string displaced_input(const QEInput &q, int atom, int axis, double shift,
     const std::regex disk_io_re(R"(^\s*disk_io\s*=)", std::regex::icase);
     for (auto &line : lines) if (std::regex_search(line, disk_io_re)) {
         const auto indent = line.substr(0, line.find_first_not_of(" \t"));
-        line = indent + "disk_io = 'nowf',\n";
+        line = indent + "disk_io = 'minimal',\n";
         disk_io_found = true;
     }
     if (!disk_io_found) {
@@ -288,7 +288,7 @@ std::string displaced_input(const QEInput &q, int atom, int axis, double shift,
         int end = control + 1;
         while (end < static_cast<int>(lines.size()) && trim(strip_comment(lines[end])) != "/") ++end;
         if (end == static_cast<int>(lines.size())) throw std::runtime_error("Unterminated &CONTROL namelist");
-        lines.insert(lines.begin() + end, "  disk_io = 'nowf',\n");
+        lines.insert(lines.begin() + end, "  disk_io = 'minimal',\n");
     }
     bool startingpot_found = false;
     std::regex spre(R"(^\s*startingpot\s*=)", std::regex::icase);

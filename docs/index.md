@@ -148,9 +148,11 @@ startingpot = 'file'
 
 FDVIB rejects it before starting. Each displaced calculation has an
 independent QE `outdir`, so calculations never share writable QE scratch data.
-FDVIB also inserts or replaces `disk_io='nowf'` because wavefunction files are
-not required for the finite-difference forces. The reference SCF retains the
-user's `disk_io` policy.
+FDVIB also inserts or replaces `disk_io='minimal'` for displaced calculations.
+This keeps only QE's XML data at convergence; wavefunction and charge-density
+files from those calculations are not needed for the finite-difference forces.
+The reference SCF retains the user's `disk_io` policy because its converged
+charge density is used to initialize every displacement.
 
 The original `scf.in` should be tested independently. Tight electronic
 convergence is important because force noise directly affects frequencies.

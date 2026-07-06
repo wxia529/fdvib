@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-07-06
+
+### Changed
+
+- Use QE `disk_io='minimal'` for displaced SCF calculations so only XML data
+  is saved at convergence.
+
 ## [1.0.2] - 2026-07-01
 
 ### Added
