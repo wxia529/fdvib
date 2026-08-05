@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-08-05
+
+### Fixed
+
+- Honor absolute `scf_input` and `outdir` paths in `fdvib.in`; absolute
+  paths previously were joined under the `fdvib.in` directory.
+- Make error messages actionable: failed QE runs now point to the log file
+  to inspect, and input-validation errors show the offending value.
+- Guard the numbered attempt-directory scan against pathological directory
+  states, and validate generated SHM fields before indexing them.
+
+### Changed
+
+- Go-ify the remaining migration style: lowercase error messages,
+  standard-library trimming/lowercasing, `ParseNumber`/`ParseIntList`/
+  `ParseLogical` names, the `FixedField` formatter, and `fmt` width flags.
+- Deduplicate shared test fixtures into `internal/fixtures` and compile the
+  fake QE executables once per test run (test suite runs in about 2 seconds).
+
 ## [1.1.0] - 2026-08-05
 
 ### Changed
