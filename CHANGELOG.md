@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-08-05
+
+### Changed
+
+- Use ASCII-only comments throughout the codebase and documentation.
+- Drop the C++ format reference generator (`tools/fmtref`); the frozen
+  formatting baseline in `internal/config/testdata/fmt_cpp.txt` and its
+  test remain the contract for the stable output formats consumed by
+  external tools (QE `dynmat.x`, Shermo, Molden) and by restart markers.
+
 ## [1.1.1] - 2026-08-05
 
 ### Fixed
