@@ -141,7 +141,7 @@ func Thermo(resultsDir, thermoInput string) error {
 		return err
 	}
 	if T <= 0 {
-		return fmt.Errorf("temperature_k must be > 0")
+		return fmt.Errorf("temperature_k must be > 0 (got %g)", T)
 	}
 	low := strings.ToLower(c.Get("low_frequency_model", "harmonic"))
 	if low != "harmonic" && low != "frequency_floor" {
@@ -159,10 +159,10 @@ func Thermo(resultsDir, thermoInput string) error {
 		return err
 	}
 	if zt < 0.0 {
-		return fmt.Errorf("zero_tolerance_cm1 must be non-negative")
+		return fmt.Errorf("zero_tolerance_cm1 must be non-negative (got %g)", zt)
 	}
 	if low == "frequency_floor" && floor <= 0.0 {
-		return fmt.Errorf("frequency_floor_cm1 must be positive")
+		return fmt.Errorf("frequency_floor_cm1 must be positive (got %g)", floor)
 	}
 	dyn, freq, err := results.ResultFiles(resultsDir, "Thermochemistry")
 	if err != nil {
@@ -303,7 +303,7 @@ func Thermo(resultsDir, thermoInput string) error {
 			degeneracy = int(rounded)
 		}
 		if degeneracy <= 0 {
-			return fmt.Errorf("electronic_degeneracy must be positive or auto")
+			return fmt.Errorf("electronic_degeneracy must be positive or auto (got %d)", degeneracy)
 		}
 		selec = units.KBEV * math.Log(float64(degeneracy))
 		hcorr = vibU + htrans + urot

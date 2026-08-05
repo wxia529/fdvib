@@ -95,10 +95,10 @@ func From(configPath, rootOverride string) (*Settings, error) {
 		return nil, err
 	}
 	if s.Displacement <= 0 {
-		return nil, fmt.Errorf("displacement_angstrom must be positive")
+		return nil, fmt.Errorf("displacement_angstrom must be positive (got %g)", s.Displacement)
 	}
 	if s.Multiplicity < 1 {
-		return nil, fmt.Errorf("multiplicity must be positive")
+		return nil, fmt.Errorf("multiplicity must be positive (got %d)", s.Multiplicity)
 	}
 	if s.OutputPrefix == "" || filepath.Base(s.OutputPrefix) != s.OutputPrefix ||
 		s.OutputPrefix == "." || s.OutputPrefix == ".." {
@@ -111,7 +111,7 @@ func From(configPath, rootOverride string) (*Settings, error) {
 		return nil, fmt.Errorf("dynmat_command must not be empty")
 	}
 	if s.SystemType != "gas" && s.SystemType != "local" {
-		return nil, fmt.Errorf("system_type must be gas or local")
+		return nil, fmt.Errorf("system_type must be gas or local (got %q)", s.SystemType)
 	}
 	atoms := strings.ToLower(c.Get("selected_atoms", ""))
 	s.SelectedAll = atoms == "all"

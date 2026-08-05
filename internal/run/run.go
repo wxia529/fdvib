@@ -472,7 +472,8 @@ func ensureReference(s *settings.Settings, q *qeinput.QEInput) (*ReferenceSeed, 
 		return nil, err
 	}
 	if rc != 0 {
-		return nil, fmt.Errorf("reference SCF failed with exit code %d", rc)
+		return nil, fmt.Errorf("reference SCF failed with exit code %d; see %s", rc,
+			config.DisplayPath(filepath.Join(attempt, "scf.out")))
 	}
 	return commit(attempt, false)
 }
@@ -596,7 +597,8 @@ func runDisplacements(s *settings.Settings, q *qeinput.QEInput, selected []int,
 					return err
 				}
 				if rc != 0 {
-					return fmt.Errorf("%s failed with exit code %d", id, rc)
+					return fmt.Errorf("%s failed with exit code %d; see %s", id, rc,
+						config.DisplayPath(filepath.Join(attempt, "pw.out")))
 				}
 				if err := commit(attempt); err != nil {
 					return err
@@ -921,7 +923,8 @@ func ensureDynmat(s *settings.Settings) error {
 		return err
 	}
 	if rc != 0 {
-		return fmt.Errorf("dynmat.x failed with exit code %d", rc)
+		return fmt.Errorf("dynmat.x failed with exit code %d; see %s", rc,
+			config.DisplayPath(filepath.Join(attempt, "dynmat.out")))
 	}
 	if err := qeoutput.ValidateQeOutput(filepath.Join(attempt, "dynmat.out")); err != nil {
 		return err

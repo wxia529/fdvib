@@ -172,7 +172,7 @@ func ParseQeInput(p string) (*QEInput, error) {
 	q.Nat, _ = strconv.Atoi(mnat[1])
 	q.Ntyp, _ = strconv.Atoi(mntyp[1])
 	if q.Nat <= 0 || q.Ntyp <= 0 {
-		return nil, fmt.Errorf("nat and ntyp must be positive")
+		return nil, fmt.Errorf("nat and ntyp must be positive (got nat=%d, ntyp=%d)", q.Nat, q.Ntyp)
 	}
 	mib := ibravRe.FindStringSubmatch(q.CleanText)
 	if mib == nil {
@@ -263,7 +263,7 @@ func ParseQeInput(p string) (*QEInput, error) {
 		x.Mass = mass
 		x.Pseudo = fields[2]
 		if !(x.Mass > 0.0) || math.IsInf(x.Mass, 0) || math.IsNaN(x.Mass) {
-			return nil, fmt.Errorf("atomic mass must be positive")
+			return nil, fmt.Errorf("atomic mass must be positive (got %g)", x.Mass)
 		}
 		q.Species = append(q.Species, x)
 	}
