@@ -40,7 +40,7 @@ Packages use lowercase names, exported identifiers are `PascalCase`, and
 package-private helpers stay lowercase. Keep cross-package data types small
 and explicit; return errors with `fmt.Errorf` and keep messages actionable.
 The formatting helpers in `internal/config` (FormatGeneral/FormatSci/
-FormatFixed) reproduce libstdc++ iostream output byte-for-byte — do not
+FormatFixed) reproduce libstdc++ iostream output byte-for-byte - do not
 replace them with `strconv` calls directly. Preserve source SPDX and copyright
 headers.
 

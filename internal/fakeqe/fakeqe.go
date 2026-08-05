@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Wanting Xia
 
 // Package fakeqe is a test double for Quantum ESPRESSO. The pw subcommand
-// evaluates forces from a fixed quadratic potential F = -H·(r - r_ref) so
+// evaluates forces from a fixed quadratic potential F = -H*(r - r_ref) so
 // the finite-difference Hessian recovered by FDVIB is exactly H; the dynmat
 // subcommand mass-weights and diagonalizes the .dynG matrix with gonum to
 // emit a QE-style frequency output. Both are driven through the FDVIB
@@ -32,7 +32,8 @@ const (
 const StateEnv = "FDVIB_FAKE_STATE"
 
 // HEnvA/HEnvB/HEnvC tune the fake quadratic potential:
-// H[(3i+α),(3j+β)] = a·δij·δαβ + b·δij + c·δ|i-j|=1  (Ry/Bohr^2).
+// H[(3i+a),(3j+b)] = a*delta(i,j)*delta(a,b) + b*delta(i,j) +
+// c*delta(|i-j|,1), where delta(x,y) is the Kronecker delta (Ry/Bohr^2).
 const (
 	HEnvA = "FDVIB_FAKE_A"
 	HEnvB = "FDVIB_FAKE_B"
