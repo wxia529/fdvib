@@ -69,7 +69,7 @@ func ParseForces(output string, nat int) ([]config.Vec3, error) {
 				return nil, fmt.Errorf("invalid or duplicate atom in force block %s", output)
 			}
 			for k := 0; k < 3; k++ {
-				x, err := config.Number(m[2+k])
+				x, err := config.ParseNumber(m[2+k])
 				if err != nil {
 					return nil, err
 				}
@@ -110,7 +110,7 @@ func ReadForces(p string, nat int) ([]config.Vec3, error) {
 	f := make([]config.Vec3, nat)
 	got := make([]bool, nat)
 	for _, line := range strings.Split(text, "\n") {
-		line = config.Trim(line)
+		line = strings.Trim(line, " \t\r\n")
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
@@ -151,7 +151,7 @@ func ReadTotalEnergyHartree(output string) (float64, error) {
 	found := false
 	var energyRy float64
 	for _, m := range totalEnergyRe.FindAllStringSubmatch(text, -1) {
-		x, err := config.Number(m[1])
+		x, err := config.ParseNumber(m[1])
 		if err != nil {
 			return 0, err
 		}

@@ -56,7 +56,7 @@ func ReadQeDynmatModes(path string, nat int) ([]Mode, error) {
 		if m == nil {
 			continue
 		}
-		freq, err := config.Number(m[1])
+		freq, err := config.ParseNumber(m[1])
 		if err != nil {
 			return nil, err
 		}
@@ -74,7 +74,7 @@ func ReadQeDynmatModes(path string, nat int) ([]Mode, error) {
 			}
 			var v config.Vec3
 			for k := 0; k < 3; k++ {
-				x, err := config.Number(ev[1+2*k])
+				x, err := config.ParseNumber(ev[1+2*k])
 				if err != nil {
 					return nil, err
 				}
@@ -109,7 +109,7 @@ func ReadQeDynGeometry(path string) (*DynGeometry, error) {
 	ntyp, err1 := strconv.Atoi(header[0])
 	nat, err2 := strconv.Atoi(header[1])
 	ibrav, err3 := strconv.Atoi(header[2])
-	alat, err4 := config.Number(header[3])
+	alat, err4 := config.ParseNumber(header[3])
 	if err1 != nil || err2 != nil || err3 != nil || err4 != nil ||
 		ibrav != 0 || ntyp <= 0 || nat <= 0 || !(alat > 0.0) {
 		return nil, fmt.Errorf("unsupported dynG header")
@@ -128,7 +128,7 @@ func ReadQeDynGeometry(path string) (*DynGeometry, error) {
 			return nil, fmt.Errorf("malformed basis vector in dynG: %s", path)
 		}
 		for k := 0; k < 3; k++ {
-			x, err := config.Number(fields[k])
+			x, err := config.ParseNumber(fields[k])
 			if err != nil {
 				return nil, fmt.Errorf("malformed basis vector in dynG: %s", path)
 			}
@@ -154,12 +154,12 @@ func ReadQeDynGeometry(path string) (*DynGeometry, error) {
 		if m == nil {
 			return nil, fmt.Errorf("malformed species symbol in dynG")
 		}
-		typeSymbols[i] = config.Trim(m[1])
+		typeSymbols[i] = strings.Trim(m[1], " \t\r\n")
 		fields := strings.Fields(lines[lineIndex])
 		if len(fields) == 0 {
 			return nil, fmt.Errorf("malformed species mass in dynG")
 		}
-		last, err := config.Number(fields[len(fields)-1])
+		last, err := config.ParseNumber(fields[len(fields)-1])
 		if err != nil {
 			return nil, err
 		}
@@ -184,7 +184,7 @@ func ReadQeDynGeometry(path string) (*DynGeometry, error) {
 			return nil, fmt.Errorf("malformed atom row in dynG: %s", path)
 		}
 		for k := 0; k < 3; k++ {
-			x, err := config.Number(fields[2+k])
+			x, err := config.ParseNumber(fields[2+k])
 			if err != nil {
 				return nil, fmt.Errorf("malformed atom row in dynG: %s", path)
 			}

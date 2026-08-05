@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/wxia529/fdvib/internal/config"
 )
@@ -42,7 +43,7 @@ func inputTemplate(typeName string) (string, error) {
 // InitializeInput writes a starter fdvib.in, refusing to overwrite an
 // existing file, like initialize_input().
 func InitializeInput(typeName, directory string) error {
-	contents, err := inputTemplate(config.Lower(typeName))
+	contents, err := inputTemplate(strings.ToLower(typeName))
 	if err != nil {
 		return err
 	}

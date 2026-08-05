@@ -72,10 +72,10 @@ func scanLine(t *testing.T, scanner *bufio.Scanner, lineNo *int) string {
 }
 
 func TestTrimLowerUnquote(t *testing.T) {
-	if got := Trim("  a b \t\r\n"); got != "a b" {
+	if got := strings.Trim("  a b \t\r\n", " \t\r\n"); got != "a b" {
 		t.Errorf("Trim = %q", got)
 	}
-	if got := Lower("AbC"); got != "abc" {
+	if got := strings.ToLower("AbC"); got != "abc" {
 		t.Errorf("Lower = %q", got)
 	}
 	for in, want := range map[string]string{
@@ -105,32 +105,32 @@ func TestStripComment(t *testing.T) {
 	}
 }
 
-func TestNumber(t *testing.T) {
+func TestParseNumber(t *testing.T) {
 	for in, want := range map[string]float64{
 		"1.5": 1.5, "1D-3": 1e-3, "1d+2": 100.0, "-2.5e1": -25.0,
 		"'3.0'": 3.0, " .5 ": 0.5, "1e2": 100.0,
 	} {
-		got, err := Number(in)
+		got, err := ParseNumber(in)
 		if err != nil || got != want {
-			t.Errorf("Number(%q) = %v, %v; want %v", in, got, err, want)
+			t.Errorf("ParseNumber(%q) = %v, %v; want %v", in, got, err, want)
 		}
 	}
 	for _, in := range []string{"1.2.3", "abc", "inf", "nan", "1e999"} {
-		if _, err := Number(in); err == nil {
-			t.Errorf("Number(%q) should fail", in)
+		if _, err := ParseNumber(in); err == nil {
+			t.Errorf("ParseNumber(%q) should fail", in)
 		}
 	}
 }
 
-func TestIntegerList(t *testing.T) {
-	got, err := IntegerList("1,2;3 4")
+func TestParseIntList(t *testing.T) {
+	got, err := ParseIntList("1,2;3 4")
 	if err != nil || len(got) != 4 || got[0] != 1 || got[3] != 4 {
 		t.Errorf("IntegerList = %v, %v", got, err)
 	}
-	if got, err := IntegerList(""); err != nil || len(got) != 0 {
-		t.Errorf("IntegerList('') = %v, %v", got, err)
+	if got, err := ParseIntList(""); err != nil || len(got) != 0 {
+		t.Errorf("ParseIntList('') = %v, %v", got, err)
 	}
-	if _, err := IntegerList("1 x"); err == nil {
+	if _, err := ParseIntList("1 x"); err == nil {
 		t.Error("IntegerList should reject non-integers")
 	}
 }

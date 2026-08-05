@@ -150,7 +150,7 @@ func metadataSelectedAtoms(metadata *results.ResultMetadata, nat int) ([]int, er
 		}
 	} else {
 		var err error
-		selected, err = config.IntegerList(metadata.SelectedAtoms)
+		selected, err = config.ParseIntList(metadata.SelectedAtoms)
 		if err != nil {
 			return nil, err
 		}

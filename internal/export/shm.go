@@ -75,7 +75,7 @@ func validateShm(path string) error {
 	}
 	{
 		fields := strings.Fields(lines[tags[0]+1])
-		value, err := config.Number(fields[0])
+		value, err := config.ParseNumber(fields[0])
 		if len(fields) != 1 || err != nil {
 			return fmt.Errorf("invalid SHM electronic energy")
 		}
@@ -83,7 +83,7 @@ func validateShm(path string) error {
 	}
 	for i := tags[1] + 1; i < tags[2]; i++ {
 		fields := strings.Fields(lines[i])
-		if _, err := config.Number(fields[0]); len(fields) != 1 || err != nil {
+		if _, err := config.ParseNumber(fields[0]); len(fields) != 1 || err != nil {
 			return fmt.Errorf("invalid SHM wavenumber")
 		}
 	}
@@ -92,13 +92,13 @@ func validateShm(path string) error {
 		if len(fields) != 5 {
 			return fmt.Errorf("invalid SHM atom row")
 		}
-		mass, err := config.Number(fields[1])
+		mass, err := config.ParseNumber(fields[1])
 		if err != nil {
 			return fmt.Errorf("invalid SHM atom row")
 		}
 		coords := make([]float64, 3)
 		for k := 0; k < 3; k++ {
-			x, err := config.Number(fields[2+k])
+			x, err := config.ParseNumber(fields[2+k])
 			if err != nil {
 				return fmt.Errorf("invalid SHM atom row")
 			}
@@ -118,7 +118,7 @@ func validateShm(path string) error {
 		if len(fields) != 2 {
 			return fmt.Errorf("invalid SHM electronic-level row")
 		}
-		energy, err := config.Number(fields[0])
+		energy, err := config.ParseNumber(fields[0])
 		if err != nil {
 			return fmt.Errorf("invalid SHM electronic-level row")
 		}

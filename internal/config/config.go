@@ -34,19 +34,9 @@ import (
 	"strings"
 )
 
-// Trim strips whitespace (" \t\r\n") from both ends of s, like C++ trim().
-func Trim(s string) string {
-	return strings.Trim(s, " \t\r\n")
-}
-
-// Lower lowercases s, like C++ lower().
-func Lower(s string) string {
-	return strings.ToLower(s)
-}
-
 // Unquote removes one layer of matching single or double quotes, like C++.
 func Unquote(s string) string {
-	s = Trim(s)
+	s = strings.Trim(s, " \t\r\n")
 	if len(s) >= 2 && ((s[0] == '\'' && s[len(s)-1] == '\'') ||
 		(s[0] == '"' && s[len(s)-1] == '"')) {
 		return s[1 : len(s)-1]
@@ -88,8 +78,8 @@ func stripKeyValueComment(line string) string {
 
 // Number parses a Fortran-style number (D/d exponents) and rejects
 // non-finite values, like C++ number().
-func Number(s string) (float64, error) {
-	s = Unquote(Trim(s))
+func ParseNumber(s string) (float64, error) {
+	s = Unquote(strings.Trim(s, " \t\r\n"))
 	s = strings.ReplaceAll(s, "D", "E")
 	s = strings.ReplaceAll(s, "d", "e")
 	x, err := strconv.ParseFloat(s, 64)
@@ -220,9 +210,9 @@ func loadConfigImpl(p string, allowNamelist bool) (*Config, error) {
 	for _, raw := range strings.Split(text, "\n") {
 		var line string
 		if allowNamelist {
-			line = Trim(StripComment(raw))
+			line = strings.Trim(StripComment(raw), " \t\r\n")
 		} else {
-			line = Trim(stripKeyValueComment(raw))
+			line = strings.Trim(stripKeyValueComment(raw), " \t\r\n")
 		}
 		if line == "" {
 			continue
@@ -237,8 +227,8 @@ func loadConfigImpl(p string, allowNamelist bool) (*Config, error) {
 		if eq < 0 {
 			return nil, fmt.Errorf("malformed assignment in %s: %s", p, line)
 		}
-		key := Lower(Trim(line[:eq]))
-		val := Trim(line[eq+1:])
+		key := strings.ToLower(strings.Trim(line[:eq], " \t\r\n"))
+		val := strings.Trim(line[eq+1:], " \t\r\n")
 		if len(val) > 0 && val[len(val)-1] == ',' {
 			val = val[:len(val)-1]
 		}
@@ -248,7 +238,7 @@ func loadConfigImpl(p string, allowNamelist bool) (*Config, error) {
 		if _, dup := c.v[key]; dup {
 			return nil, fmt.Errorf("duplicate parameter in %s: %s", p, key)
 		}
-		c.v[key] = Trim(val)
+		c.v[key] = strings.Trim(val, " \t\r\n")
 	}
 	return c, nil
 }
@@ -266,13 +256,13 @@ func LoadQENamelist(p string) (*Config, error) {
 
 // Has reports whether key is present (case-insensitive).
 func (c *Config) Has(key string) bool {
-	_, ok := c.v[Lower(key)]
+	_, ok := c.v[strings.ToLower(key)]
 	return ok
 }
 
 // Get returns the unquoted value for key, or d when absent.
 func (c *Config) Get(key, d string) string {
-	if v, ok := c.v[Lower(key)]; ok {
+	if v, ok := c.v[strings.ToLower(key)]; ok {
 		return Unquote(v)
 	}
 	return d
@@ -283,7 +273,7 @@ func (c *Config) Real(key string, d float64) (float64, error) {
 	if !c.Has(key) {
 		return d, nil
 	}
-	return Number(c.v[Lower(key)])
+	return ParseNumber(c.v[strings.ToLower(key)])
 }
 
 // Integer returns the integral value for key, or d when absent; non-integral
@@ -292,13 +282,13 @@ func (c *Config) Integer(key string, d int) (int, error) {
 	if !c.Has(key) {
 		return d, nil
 	}
-	x, err := Number(c.v[Lower(key)])
+	x, err := ParseNumber(c.v[strings.ToLower(key)])
 	if err != nil {
 		return 0, err
 	}
 	rounded := math.Round(x)
 	if math.Abs(x-rounded) > 1.0e-10 {
-		return 0, fmt.Errorf("expected integer for %s: %s", key, c.v[Lower(key)])
+		return 0, fmt.Errorf("expected integer for %s: %s", key, c.v[strings.ToLower(key)])
 	}
 	return int(rounded), nil
 }
@@ -319,15 +309,15 @@ func (c *Config) RequireOnly(allowed map[string]bool, context string) error {
 	return nil
 }
 
-// LogicalValue interprets a Fortran-style logical, like logical_value().
-func LogicalValue(c *Config, key string, required bool) (bool, error) {
+// ParseLogical interprets a Fortran-style logical, like logical_value().
+func ParseLogical(c *Config, key string, required bool) (bool, error) {
 	if !c.Has(key) {
 		if required {
 			return false, fmt.Errorf("missing required parameter in fdvib.in: %s", key)
 		}
 		return false, nil
 	}
-	switch value := Lower(c.Get(key, "")); value {
+	switch value := strings.ToLower(c.Get(key, "")); value {
 	case ".true.", "true":
 		return true, nil
 	case ".false.", "false":
@@ -337,9 +327,9 @@ func LogicalValue(c *Config, key string, required bool) (bool, error) {
 	}
 }
 
-// IntegerList parses a comma/semicolon/space separated list of integers,
+// ParseIntList parses a comma/semicolon/space separated list of integers,
 // like integer_list().
-func IntegerList(s string) ([]int, error) {
+func ParseIntList(s string) ([]int, error) {
 	original := s
 	s = strings.Map(func(r rune) rune {
 		if r == ',' || r == ';' {

@@ -106,7 +106,7 @@ func Thermo(resultsDir, thermoInput string) error {
 	}, thermoInput); err != nil {
 		return err
 	}
-	model := config.Lower(c.Get("model", ""))
+	model := strings.ToLower(c.Get("model", ""))
 	if model != "gas_rrho" && model != "local_harmonic" {
 		return fmt.Errorf("thermo model must be gas_rrho or local_harmonic")
 	}
@@ -123,8 +123,8 @@ func Thermo(resultsDir, thermoInput string) error {
 		if err != nil {
 			return err
 		}
-		asr := config.Lower(d.Get("asr", "no"))
-		remove := config.Lower(d.Get("remove_interaction_blocks", ".false."))
+		asr := strings.ToLower(d.Get("asr", "no"))
+		remove := strings.ToLower(d.Get("remove_interaction_blocks", ".false."))
 		removesBlocks := remove == ".true." || remove == "true" || remove == "t"
 		if asr != "no" {
 			return fmt.Errorf("thermochemistry requires asr='no' in dynmat.in")
@@ -143,7 +143,7 @@ func Thermo(resultsDir, thermoInput string) error {
 	if T <= 0 {
 		return fmt.Errorf("temperature_k must be > 0")
 	}
-	low := config.Lower(c.Get("low_frequency_model", "harmonic"))
+	low := strings.ToLower(c.Get("low_frequency_model", "harmonic"))
 	if low != "harmonic" && low != "frequency_floor" {
 		return fmt.Errorf("invalid low_frequency_model")
 	}
@@ -205,7 +205,7 @@ func Thermo(resultsDir, thermoInput string) error {
 			off[2] -= m * x[1] * x[2]
 		}
 		I = modeselect.SymmetricEigenvalues(d, off)
-		rotorType = config.Lower(c.Get("rotor_type", "auto"))
+		rotorType = strings.ToLower(c.Get("rotor_type", "auto"))
 		if rotorType == "auto" {
 			if len(g.Masses) == 1 {
 				rotorType = "atom"
@@ -290,9 +290,9 @@ func Thermo(resultsDir, thermoInput string) error {
 			urot = 1.5 * units.KBEV * T
 		}
 		degeneracy := mult
-		ed := config.Lower(c.Get("electronic_degeneracy", "auto"))
+		ed := strings.ToLower(c.Get("electronic_degeneracy", "auto"))
 		if ed != "auto" {
-			value, err := config.Number(ed)
+			value, err := config.ParseNumber(ed)
 			if err != nil {
 				return err
 			}

@@ -80,7 +80,7 @@ func cardUnit(line, card string) string {
 	if unit == "" {
 		unit = m[2]
 	}
-	return config.Lower(unit)
+	return strings.ToLower(unit)
 }
 
 func scalarParameter(text, name string) (float64, bool) {
@@ -89,7 +89,7 @@ func scalarParameter(text, name string) (float64, bool) {
 	if m == nil {
 		return 0.0, false
 	}
-	x, err := config.Number(m[1])
+	x, err := config.ParseNumber(m[1])
 	if err != nil {
 		return 0.0, false
 	}
@@ -189,7 +189,7 @@ func ParseQeInput(p string) (*QEInput, error) {
 		return nil, fmt.Errorf("scf.in must contain tprnfor=.true.")
 	}
 	for _, m := range startingpotRe.FindAllStringSubmatch(q.CleanText, -1) {
-		if config.Lower(m[1]) == "file" {
+		if strings.ToLower(m[1]) == "file" {
 			return nil, fmt.Errorf("scf.in must not set startingpot='file'; fdvib manages the reference density")
 		}
 	}
@@ -204,7 +204,7 @@ func ParseQeInput(p string) (*QEInput, error) {
 	q.AlatAngstrom = alatAngstrom(q.CleanText)
 	sp := -1
 	for i, raw := range q.Lines {
-		s := config.Trim(raw)
+		s := strings.Trim(raw, " \t\r\n")
 		switch {
 		case speciesCardRe.MatchString(s):
 			sp = i
@@ -478,7 +478,7 @@ func DisplacedInput(q *QEInput, atom, axis int, shift float64,
 	if !diskIOFound {
 		control := -1
 		for i := range lines {
-			if controlRe.MatchString(config.Trim(lines[i])) {
+			if controlRe.MatchString(strings.Trim(lines[i], " \t\r\n")) {
 				control = i
 				break
 			}
@@ -487,7 +487,7 @@ func DisplacedInput(q *QEInput, atom, axis int, shift float64,
 			return "", fmt.Errorf("cannot find &CONTROL in scf.in")
 		}
 		end := control + 1
-		for end < len(lines) && config.Trim(config.StripComment(lines[end])) != "/" {
+		for end < len(lines) && strings.Trim(config.StripComment(lines[end]), " \t\r\n") != "/" {
 			end++
 		}
 		if end == len(lines) {
@@ -507,14 +507,14 @@ func DisplacedInput(q *QEInput, atom, axis int, shift float64,
 	if !startingpotFound {
 		electrons := -1
 		for i := range lines {
-			if electronsRe.MatchString(config.Trim(lines[i])) {
+			if electronsRe.MatchString(strings.Trim(lines[i], " \t\r\n")) {
 				electrons = i
 				break
 			}
 		}
 		if electrons >= 0 {
 			end := electrons + 1
-			for end < len(lines) && config.Trim(config.StripComment(lines[end])) != "/" {
+			for end < len(lines) && strings.Trim(config.StripComment(lines[end]), " \t\r\n") != "/" {
 				end++
 			}
 			if end == len(lines) {
@@ -527,7 +527,7 @@ func DisplacedInput(q *QEInput, atom, axis int, shift float64,
 				firstCard = q.CellHeader
 			}
 			for i := range lines {
-				if speciesCardRe.MatchString(config.Trim(lines[i])) && i < firstCard {
+				if speciesCardRe.MatchString(strings.Trim(lines[i], " \t\r\n")) && i < firstCard {
 					firstCard = i
 				}
 			}

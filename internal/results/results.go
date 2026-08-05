@@ -66,7 +66,7 @@ func ReadMetadata(results string, required bool) (*ResultMetadata, error) {
 	}, "metadata.dat"); err != nil {
 		return nil, err
 	}
-	metadata.Program = config.Lower(c.Get("program", metadata.Program))
+	metadata.Program = strings.ToLower(c.Get("program", metadata.Program))
 	if metadata.Program != "qe" {
 		return nil, fmt.Errorf("unsupported program in metadata.dat: %s", metadata.Program)
 	}
@@ -78,8 +78,8 @@ func ReadMetadata(results string, required bool) (*ResultMetadata, error) {
 	if err != nil {
 		return nil, err
 	}
-	metadata.ModeSelection = config.Lower(c.Get("mode_selection", metadata.ModeSelection))
-	metadata.SelectedAtoms = config.Lower(c.Get("selected_atoms", metadata.SelectedAtoms))
+	metadata.ModeSelection = strings.ToLower(c.Get("mode_selection", metadata.ModeSelection))
+	metadata.SelectedAtoms = strings.ToLower(c.Get("selected_atoms", metadata.SelectedAtoms))
 	if metadata.ModeSelection != "all" && metadata.ModeSelection != "gas" &&
 		metadata.ModeSelection != "local" {
 		return nil, fmt.Errorf("mode_selection must be all, gas, or local in metadata.dat")

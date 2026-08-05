@@ -8,6 +8,7 @@ package settings
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/wxia529/fdvib/internal/config"
 )
@@ -65,7 +66,7 @@ func From(configPath, rootOverride string) (*Settings, error) {
 	}
 	s.ScfInput = filepath.Join(s.Root, c.Get("scf_input", "scf.in"))
 	s.Workdir = filepath.Join(s.Root, c.Get("outdir", "fdvib"))
-	s.SystemType = config.Lower(c.Get("system_type", "local"))
+	s.SystemType = strings.ToLower(c.Get("system_type", "local"))
 	s.Displacement, err = c.Real("displacement_angstrom", 0.01)
 	if err != nil {
 		return nil, err
@@ -78,7 +79,7 @@ func From(configPath, rootOverride string) (*Settings, error) {
 	s.PWCommand = c.Get("pw_command", "pw.x")
 	s.DynmatCommand = c.Get("dynmat_command", "dynmat.x")
 	s.OutputPrefix = c.Get("prefix", "system")
-	s.RunDynmat, err = config.LogicalValue(c, "run_dynmat", true)
+	s.RunDynmat, err = config.ParseLogical(c, "run_dynmat", true)
 	if err != nil {
 		return nil, err
 	}
@@ -92,21 +93,21 @@ func From(configPath, rootOverride string) (*Settings, error) {
 		s.OutputPrefix == "." || s.OutputPrefix == ".." {
 		return nil, fmt.Errorf("prefix must be a non-empty filename prefix without directories")
 	}
-	if config.Trim(s.PWCommand) == "" {
+	if strings.Trim(s.PWCommand, " \t\r\n") == "" {
 		return nil, fmt.Errorf("pw_command must not be empty")
 	}
-	if s.RunDynmat && config.Trim(s.DynmatCommand) == "" {
+	if s.RunDynmat && strings.Trim(s.DynmatCommand, " \t\r\n") == "" {
 		return nil, fmt.Errorf("dynmat_command must not be empty")
 	}
 	if s.SystemType != "gas" && s.SystemType != "local" {
 		return nil, fmt.Errorf("system_type must be gas or local")
 	}
-	atoms := config.Lower(c.Get("selected_atoms", ""))
+	atoms := strings.ToLower(c.Get("selected_atoms", ""))
 	s.SelectedAll = atoms == "all"
 	if s.SelectedAll {
 		s.Selected = nil
 	} else {
-		s.Selected, err = config.IntegerList(atoms)
+		s.Selected, err = config.ParseIntList(atoms)
 		if err != nil {
 			return nil, err
 		}

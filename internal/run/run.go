@@ -65,7 +65,7 @@ func Calculate(s *settings.Settings) error {
 		magnetization := 0.0
 		hasMagnetization := false
 		if m := magnetizationRe.FindStringSubmatch(q.CleanText); m != nil {
-			x, err := config.Number(m[1])
+			x, err := config.ParseNumber(m[1])
 			if err != nil {
 				return err
 			}
