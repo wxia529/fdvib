@@ -44,19 +44,11 @@ func vibrationThermo(modes []qevibration.Mode, T float64, model string, floor, z
 		e := nu * units.CMToEV
 		x := e / (units.KBEV * T)
 		zpe += 0.5 * e
-		u += 0.5*e + e/expm1(x)
-		s += units.KBEV * (x/expm1(x) - log1p(-math.Exp(-x)))
+		u += 0.5*e + e/math.Expm1(x)
+		s += units.KBEV * (x/math.Expm1(x) - math.Log1p(-math.Exp(-x)))
 	}
 	f = u - T*s
 	return
-}
-
-func expm1(x float64) float64 {
-	return math.Exp(x) - 1
-}
-
-func log1p(x float64) float64 {
-	return math.Log1p(x)
 }
 
 // gasVibrationalModes removes the rigid-body modes and rejects non-positive
@@ -98,20 +90,6 @@ func gasVibrationalModes(modes []qevibration.Mode, rotorType string) (vibrations
 		vibrations = append(vibrations, modes[i])
 	}
 	return vibrations, largestRigid, nil
-}
-
-func sortStableByAbsFreq(order []int, modes []qevibration.Mode) {
-	// Insertion sort keeps stability with the same comparator as C++
-	// std::stable_sort (ascending |freq|).
-	for i := 1; i < len(order); i++ {
-		key := order[i]
-		j := i - 1
-		for j >= 0 && math.Abs(modes[order[j]].Freq) > math.Abs(modes[key].Freq) {
-			order[j+1] = order[j]
-			j--
-		}
-		order[j+1] = key
-	}
 }
 
 // Thermo runs the `thermo` command, like thermo() in thermo.cpp.

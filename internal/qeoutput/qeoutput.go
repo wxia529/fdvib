@@ -22,16 +22,6 @@ var (
 	totalEnergyRe  = regexp.MustCompile(`(?i)!\s+total\s+energy\s*=\s*([-+0-9.EeDd]+)\s+Ry\b`)
 )
 
-// istreamDouble mimics C++ istream >> double (strtod prefix parsing).
-func istreamDouble(s string) (float64, string, bool) {
-	for i := len(s); i >= 1; i-- {
-		if x, err := strconv.ParseFloat(s[:i], 64); err == nil {
-			return x, s[i:], true
-		}
-	}
-	return 0, s, false
-}
-
 // ValidateQeOutput checks a pw.x stdout file for completion and errors, like
 // validate_qe_output().
 func ValidateQeOutput(output string) error {
@@ -135,7 +125,7 @@ func ReadForces(p string, nat int) ([]config.Vec3, error) {
 		for k := 0; k < 3; k++ {
 			// C++ reads with istream >> double (strtod prefix semantics);
 			// an unconsumed remainder fails the following read.
-			x, rest, ok := istreamDouble(fields[1+k])
+			x, rest, ok := config.IstreamDouble(fields[1+k])
 			if !ok || rest != "" {
 				return nil, fmt.Errorf("Bad forces.dat: %s", p)
 			}

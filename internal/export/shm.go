@@ -14,9 +14,9 @@ import (
 	"github.com/wxia529/fdvib/internal/config"
 	"github.com/wxia529/fdvib/internal/elements"
 	modeselect "github.com/wxia529/fdvib/internal/modes"
+	"github.com/wxia529/fdvib/internal/process"
 	"github.com/wxia529/fdvib/internal/qevibration"
 	"github.com/wxia529/fdvib/internal/results"
-	"github.com/wxia529/fdvib/internal/settings"
 	"github.com/wxia529/fdvib/internal/units"
 )
 
@@ -33,22 +33,9 @@ func shellDisplayPath(path string) string {
 		}
 	}
 	if shown == "" || unsafe {
-		return settings.ShellQuote(shown)
+		return process.ShellQuote(shown)
 	}
 	return shown
-}
-
-// splitLines reproduces std::getline line splitting: a trailing newline does
-// not produce an extra empty line.
-func splitLines(text string) []string {
-	if text == "" {
-		return nil
-	}
-	lines := strings.Split(text, "\n")
-	if lines[len(lines)-1] == "" {
-		lines = lines[:len(lines)-1]
-	}
-	return lines
 }
 
 // validateShm re-parses a generated .shm file, like validate_shm().
@@ -57,7 +44,7 @@ func validateShm(path string) error {
 	if err != nil {
 		return err
 	}
-	lines := splitLines(text)
+	lines := config.SplitLines(text)
 	for _, line := range lines {
 		if line == "" {
 			return fmt.Errorf("Generated SHM contains an empty line")

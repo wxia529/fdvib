@@ -8,7 +8,6 @@ package settings
 import (
 	"fmt"
 	"path/filepath"
-	"strings"
 
 	"github.com/wxia529/fdvib/internal/config"
 )
@@ -124,10 +123,4 @@ func JobName(atom1, axis int, sign int) string {
 		letter = "p"
 	}
 	return fmt.Sprintf("disp_%04d_%s_%s", atom1, xyz[axis], letter)
-}
-
-// ShellQuote wraps s in single quotes for POSIX shells, escaping embedded
-// quotes, like shell_quote().
-func ShellQuote(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
 }

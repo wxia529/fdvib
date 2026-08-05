@@ -4,6 +4,7 @@
 package qeinput
 
 import (
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -96,7 +97,7 @@ func TestParseQeInputUnits(t *testing.T) {
 		t.Errorf("alat cell not scaled: %+v", q.Cell)
 	}
 	// bohr positions: H at 0.757 bohr = 0.757 * BOHR_TO_ANG angstrom.
-	if abs(q.Atoms[1].R[0]-0.757*0.529177210544) > 1e-15 {
+	if math.Abs(q.Atoms[1].R[0]-0.757*0.529177210544) > 1e-15 {
 		t.Errorf("bohr position not scaled: %+v", q.Atoms[1].R)
 	}
 }

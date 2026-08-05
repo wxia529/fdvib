@@ -350,3 +350,30 @@ func IntegerList(s string) ([]int, error) {
 	}
 	return out, nil
 }
+
+// SplitLines splits text into lines with std::getline semantics: a trailing
+// newline does not produce an extra empty line.
+func SplitLines(text string) []string {
+	if text == "" {
+		return nil
+	}
+	lines := strings.Split(text, "\n")
+	if lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+	return lines
+}
+
+// IstreamDouble mimics C++ istream >> double, which parses the longest
+// strtod-compatible prefix and leaves the rest unconsumed (strtod stops at
+// Fortran D/d exponents, so "0.757D0" parses as 0.757 with remainder "D0").
+// The returned ok is false when no numeric prefix exists.
+func IstreamDouble(s string) (float64, string, bool) {
+	s = strings.TrimLeft(s, " \t")
+	for i := len(s); i >= 1; i-- {
+		if x, err := strconv.ParseFloat(s[:i], 64); err == nil {
+			return x, s[i:], true
+		}
+	}
+	return 0, s, false
+}

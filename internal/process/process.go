@@ -11,8 +11,15 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 )
+
+// ShellQuote wraps s in single quotes for POSIX shells, escaping embedded
+// quotes, like shell_quote().
+func ShellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+}
 
 // ShellRun executes cmd with /bin/sh -c in cwd, writing stdout and stderr to
 // stdoutPath (truncated), and returns the child exit code.

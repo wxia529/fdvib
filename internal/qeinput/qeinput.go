@@ -126,7 +126,7 @@ func cartToCrystalDelta(cell [3]config.Vec3, cart config.Vec3) (config.Vec3, err
 	a20, a21, a22 := cell[0][2], cell[1][2], cell[2][2]
 	det := a00*(a11*a22-a12*a21) - a01*(a10*a22-a12*a20) +
 		a02*(a10*a21-a11*a20)
-	if abs(det) < 1.0e-14 {
+	if math.Abs(det) < 1.0e-14 {
 		return config.Vec3{}, fmt.Errorf("CELL_PARAMETERS matrix is singular")
 	}
 	var out config.Vec3
@@ -139,46 +139,12 @@ func cartToCrystalDelta(cell [3]config.Vec3, cart config.Vec3) (config.Vec3, err
 	return out, nil
 }
 
-func abs(x float64) float64 {
-	if x < 0 {
-		return -x
-	}
-	return x
-}
-
 func supportedPositionUnit(unit string) bool {
 	return unit == "angstrom" || unit == "bohr" || unit == "alat" || unit == "crystal"
 }
 
 func supportedCellUnit(unit string) bool {
 	return unit == "angstrom" || unit == "bohr" || unit == "alat"
-}
-
-// splitLines reproduces std::getline line splitting: a trailing newline does
-// not produce an extra empty line.
-func splitLines(text string) []string {
-	if text == "" {
-		return nil
-	}
-	lines := strings.Split(text, "\n")
-	if lines[len(lines)-1] == "" {
-		lines = lines[:len(lines)-1]
-	}
-	return lines
-}
-
-// istreamDouble mimics C++ istream >> double, which parses the longest
-// strtod-compatible prefix and leaves the rest unconsumed (strtod stops at
-// Fortran D/d exponents, so "0.757D0" parses as 0.757 with remainder "D0").
-// The returned ok is false when no numeric prefix exists.
-func istreamDouble(s string) (float64, string, bool) {
-	s = strings.TrimLeft(s, " \t")
-	for i := len(s); i >= 1; i-- {
-		if x, err := strconv.ParseFloat(s[:i], 64); err == nil {
-			return x, s[i:], true
-		}
-	}
-	return 0, s, false
 }
 
 // ParseQeInput reads and validates a pw.x input file, like parse_qe_input().
@@ -190,7 +156,7 @@ func ParseQeInput(p string) (*QEInput, error) {
 	q := &QEInput{Text: text, Prefix: "pwscf",
 		PositionsUnit: "angstrom", CellUnit: "angstrom",
 		PosHeader: -1, PosStart: -1, CellHeader: -1}
-	for _, line := range splitLines(text) {
+	for _, line := range config.SplitLines(text) {
 		q.Lines = append(q.Lines, line+"\n")
 		q.CleanText += config.StripComment(line) + "\n"
 	}
@@ -290,7 +256,7 @@ func ParseQeInput(p string) (*QEInput, error) {
 		}
 		var x Species
 		x.Symbol = fields[0]
-		mass, _, ok := istreamDouble(fields[1])
+		mass, _, ok := config.IstreamDouble(fields[1])
 		if !ok {
 			return nil, fmt.Errorf("Bad ATOMIC_SPECIES line")
 		}
@@ -311,7 +277,7 @@ func ParseQeInput(p string) (*QEInput, error) {
 		for k := 0; k < 3; k++ {
 			// A non-empty remainder means the next istream read would have
 			// failed, so the whole line is rejected like C++.
-			x, rest, ok := istreamDouble(fields[1+k])
+			x, rest, ok := config.IstreamDouble(fields[1+k])
 			if !ok || rest != "" {
 				return nil, fmt.Errorf("Bad ATOMIC_POSITIONS line")
 			}
@@ -337,7 +303,7 @@ func ParseQeInput(p string) (*QEInput, error) {
 			return nil, fmt.Errorf("Bad CELL_PARAMETERS")
 		}
 		for k := 0; k < 3; k++ {
-			x, rest, ok := istreamDouble(fields[k])
+			x, rest, ok := config.IstreamDouble(fields[k])
 			if !ok || rest != "" {
 				return nil, fmt.Errorf("Bad CELL_PARAMETERS")
 			}
