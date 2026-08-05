@@ -32,34 +32,34 @@ func WriteDynG(p string, q *qeinput.QEInput, h []float64) error {
 	alatBohr := alatAng / units.BohrToAng
 	var b strings.Builder
 	b.WriteString("Dynamical matrix file\nfdvib finite-difference local/Gamma matrix\n")
-	b.WriteString(config.Right(fmt.Sprintf("%d", q.Ntyp), 3))
-	b.WriteString(config.Right(fmt.Sprintf("%d", q.Nat), 5))
-	b.WriteString(config.Right("0", 4))
-	b.WriteString(config.Right(config.FormatFixed(alatBohr, 7), 12))
+	b.WriteString(fmt.Sprintf("%3d", q.Ntyp))
+	b.WriteString(fmt.Sprintf("%5d", q.Nat))
+	b.WriteString(fmt.Sprintf("%4s", "0"))
+	b.WriteString(config.FixedField(alatBohr, 7, 12))
 	for i := 0; i < 5; i++ {
-		b.WriteString(config.Right(config.FormatFixed(0.0, 7), 12))
+		b.WriteString(config.FixedField(0.0, 7, 12))
 	}
 	b.WriteString("\nBasis vectors\n")
 	for _, v := range q.Cell {
 		b.WriteString("  ")
 		for k := 0; k < 3; k++ {
-			b.WriteString(config.Right(config.FormatFixed(v[k]/alatAng, 9), 15))
+			b.WriteString(config.FixedField(v[k]/alatAng, 9, 15))
 		}
 		b.WriteString("\n")
 	}
 	for i := 0; i < q.Ntyp; i++ {
-		b.WriteString(config.Right(fmt.Sprintf("%d", i+1), 12))
+		b.WriteString(fmt.Sprintf("%12d", i+1))
 		b.WriteString("  '")
-		b.WriteString(config.Left(q.Species[i].Symbol, 7))
+		b.WriteString(fmt.Sprintf("%-7s", q.Species[i].Symbol))
 		b.WriteString("' ")
-		b.WriteString(config.Right(config.FormatFixed(units.AmuRy*q.Species[i].Mass, 12), 22))
+		b.WriteString(config.FixedField(units.AmuRy*q.Species[i].Mass, 12, 22))
 		b.WriteString("\n")
 	}
 	for i := 0; i < q.Nat; i++ {
-		b.WriteString(config.Right(fmt.Sprintf("%d", i+1), 5))
-		b.WriteString(config.Right(fmt.Sprintf("%d", q.Atoms[i].Type), 5))
+		b.WriteString(fmt.Sprintf("%5d", i+1))
+		b.WriteString(fmt.Sprintf("%5d", q.Atoms[i].Type))
 		for k := 0; k < 3; k++ {
-			b.WriteString(config.Right(config.FormatFixed(q.Atoms[i].R[k]/alatAng, 10), 18))
+			b.WriteString(config.FixedField(q.Atoms[i].R[k]/alatAng, 10, 18))
 		}
 		b.WriteString("\n")
 	}
@@ -67,14 +67,14 @@ func WriteDynG(p string, q *qeinput.QEInput, h []float64) error {
 	n3 := 3 * q.Nat
 	for a := 0; a < q.Nat; a++ {
 		for b2 := 0; b2 < q.Nat; b2++ {
-			b.WriteString(config.Right(fmt.Sprintf("%d", a+1), 5))
-			b.WriteString(config.Right(fmt.Sprintf("%d", b2+1), 5))
+			b.WriteString(fmt.Sprintf("%5d", a+1))
+			b.WriteString(fmt.Sprintf("%5d", b2+1))
 			b.WriteString("\n")
 			for i := 0; i < 3; i++ {
 				for j := 0; j < 3; j++ {
-					b.WriteString(config.Right(config.FormatFixed(h[(3*a+i)*n3+3*b2+j], 10), 14))
+					b.WriteString(config.FixedField(h[(3*a+i)*n3+3*b2+j], 10, 14))
 					b.WriteString("   ")
-					b.WriteString(config.Right(config.FormatFixed(0.0, 10), 12))
+					b.WriteString(config.FixedField(0.0, 10, 12))
 					b.WriteString("  ")
 				}
 				b.WriteString("\n")

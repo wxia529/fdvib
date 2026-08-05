@@ -341,10 +341,10 @@ func ParseQeInput(p string) (*QEInput, error) {
 // semantics, like format_position().
 func FormatPosition(a *Atom, coord config.Vec3) string {
 	var b strings.Builder
-	b.WriteString(config.Left(a.Symbol, 4))
+	b.WriteString(fmt.Sprintf("%-4s", a.Symbol))
 	for _, v := range coord {
 		b.WriteString(" ")
-		b.WriteString(config.Right(config.FormatFixed(v, 10), 18))
+		b.WriteString(config.FixedField(v, 10, 18))
 	}
 	for _, x := range a.Extra {
 		b.WriteString("  ")

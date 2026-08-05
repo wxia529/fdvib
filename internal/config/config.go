@@ -196,20 +196,11 @@ func FormatFixed(x float64, prec int) string {
 	return strconv.FormatFloat(x, 'f', prec, 64)
 }
 
-// Right pads s to width with spaces (C++ setw right-alignment default).
-func Right(s string, width int) string {
-	if len(s) >= width {
-		return s
-	}
-	return strings.Repeat(" ", width-len(s)) + s
-}
-
-// Left pads s to width with trailing spaces (C++ setw with std::left).
-func Left(s string, width int) string {
-	if len(s) >= width {
-		return s
-	}
-	return s + strings.Repeat(" ", width-len(s))
+// FixedField renders v with prec decimal places (C++ fixed + setprecision),
+// right-padded to width (C++ setw). It corresponds to
+// `setw(width) << fixed << setprecision(prec) << v`.
+func FixedField(v float64, prec, width int) string {
+	return fmt.Sprintf("%*s", width, FormatFixed(v, prec))
 }
 
 // Vec3 is a fixed-size three-component vector, like std::array<double, 3>.

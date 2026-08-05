@@ -36,7 +36,7 @@ func writeMolden(path string, geometry *qevibration.DynGeometry,
 	b.WriteString("[Cell]\n")
 	for _, v := range geometry.CellBohr {
 		for k := 0; k < 3; k++ {
-			b.WriteString(config.Right(config.FormatFixed(v[k]*units.BohrToAng, 8), 15))
+			b.WriteString(config.FixedField(v[k]*units.BohrToAng, 8, 15))
 		}
 		b.WriteString("\n")
 	}
@@ -46,11 +46,11 @@ func writeMolden(path string, geometry *qevibration.DynGeometry,
 		if err != nil {
 			return err
 		}
-		b.WriteString(config.Right(symbols[i], 6))
-		b.WriteString(config.Right(fmt.Sprintf("%d", i+1), 8))
-		b.WriteString(config.Right(fmt.Sprintf("%d", z), 8))
+		b.WriteString(fmt.Sprintf("%6s", symbols[i]))
+		b.WriteString(fmt.Sprintf("%8d", i+1))
+		b.WriteString(fmt.Sprintf("%8d", z))
 		for k := 0; k < 3; k++ {
-			b.WriteString(config.Right(config.FormatFixed(geometry.RBohr[i][k], 8), 18))
+			b.WriteString(config.FixedField(geometry.RBohr[i][k], 8, 18))
 		}
 		b.WriteString("\n")
 	}
@@ -61,9 +61,9 @@ func writeMolden(path string, geometry *qevibration.DynGeometry,
 	}
 	b.WriteString("[FR-COORD]\n")
 	for i := range symbols {
-		b.WriteString(config.Right(symbols[i], 6))
+		b.WriteString(fmt.Sprintf("%6s", symbols[i]))
 		for k := 0; k < 3; k++ {
-			b.WriteString(config.Right(config.FormatFixed(geometry.RBohr[i][k], 8), 18))
+			b.WriteString(config.FixedField(geometry.RBohr[i][k], 8, 18))
 		}
 		b.WriteString("\n")
 	}
@@ -72,7 +72,7 @@ func writeMolden(path string, geometry *qevibration.DynGeometry,
 		fmt.Fprintf(&b, " vibration %d\n", i+1)
 		for _, displacement := range modes[index].Displacement {
 			for k := 0; k < 3; k++ {
-				b.WriteString(config.Right(config.FormatFixed(displacement[k], 10), 15))
+				b.WriteString(config.FixedField(displacement[k], 10, 15))
 			}
 			b.WriteString("\n")
 		}

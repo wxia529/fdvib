@@ -330,64 +330,64 @@ func Thermo(resultsDir, thermoInput string) error {
 		imag, zero, used, floored)
 	b.WriteString("# units: T=K energies=eV entropy=eV/K\n")
 	if model == "local_harmonic" {
-		b.WriteString("# " + config.Right("T/K", 11) + config.Right("ZPE/eV", 16) + config.Right("U_vib/eV", 16) +
-			config.Right("S_vib/eV_K", 19) + config.Right("TS_vib/eV", 16) + config.Right("F_vib/eV", 16) + "\n")
+		b.WriteString("# " + fmt.Sprintf("%11s", "T/K") + fmt.Sprintf("%16s", "ZPE/eV") + fmt.Sprintf("%16s", "U_vib/eV") +
+			fmt.Sprintf("%19s", "S_vib/eV_K") + fmt.Sprintf("%16s", "TS_vib/eV") + fmt.Sprintf("%16s", "F_vib/eV") + "\n")
 		fmt.Fprintf(&b, "  %s%s%s%s%s%s\n",
-			config.Right(config.FormatFixed(T, 3), 11),
-			config.Right(config.FormatFixed(zpe, 10), 16),
-			config.Right(config.FormatFixed(vibU, 10), 16),
-			config.Right(config.FormatFixed(vibS, 12), 19),
-			config.Right(config.FormatFixed(T*vibS, 10), 16),
-			config.Right(config.FormatFixed(vibF, 10), 16))
+			config.FixedField(T, 3, 11),
+			config.FixedField(zpe, 10, 16),
+			config.FixedField(vibU, 10, 16),
+			config.FixedField(vibS, 12, 19),
+			config.FixedField(T*vibS, 10, 16),
+			config.FixedField(vibF, 10, 16))
 	} else {
-		b.WriteString("# " + config.Right("T/K", 11) + config.Right("ZPE/eV", 15) + config.Right("U_vib/eV", 15) +
-			config.Right("H_trans/eV", 15) + config.Right("U_rot/eV", 15) +
-			config.Right("S_trans/eV_K", 18) + config.Right("S_rot/eV_K", 18) +
-			config.Right("S_vib/eV_K", 18) + config.Right("S_elec/eV_K", 18) +
-			config.Right("H_corr/eV", 15) + config.Right("G_corr/eV", 15) + "\n")
+		b.WriteString("# " + fmt.Sprintf("%11s", "T/K") + fmt.Sprintf("%15s", "ZPE/eV") + fmt.Sprintf("%15s", "U_vib/eV") +
+			fmt.Sprintf("%15s", "H_trans/eV") + fmt.Sprintf("%15s", "U_rot/eV") +
+			fmt.Sprintf("%18s", "S_trans/eV_K") + fmt.Sprintf("%18s", "S_rot/eV_K") +
+			fmt.Sprintf("%18s", "S_vib/eV_K") + fmt.Sprintf("%18s", "S_elec/eV_K") +
+			fmt.Sprintf("%15s", "H_corr/eV") + fmt.Sprintf("%15s", "G_corr/eV") + "\n")
 		fmt.Fprintf(&b, "  %s%s%s%s%s%s%s%s%s%s%s\n",
-			config.Right(config.FormatFixed(T, 3), 11),
-			config.Right(config.FormatFixed(zpe, 10), 15),
-			config.Right(config.FormatFixed(vibU, 10), 15),
-			config.Right(config.FormatFixed(htrans, 10), 15),
-			config.Right(config.FormatFixed(urot, 10), 15),
-			config.Right(config.FormatFixed(strans, 12), 18),
-			config.Right(config.FormatFixed(srot, 12), 18),
-			config.Right(config.FormatFixed(vibS, 12), 18),
-			config.Right(config.FormatFixed(selec, 12), 18),
-			config.Right(config.FormatFixed(hcorr, 10), 15),
-			config.Right(config.FormatFixed(gcorr, 10), 15))
+			config.FixedField(T, 3, 11),
+			config.FixedField(zpe, 10, 15),
+			config.FixedField(vibU, 10, 15),
+			config.FixedField(htrans, 10, 15),
+			config.FixedField(urot, 10, 15),
+			config.FixedField(strans, 12, 18),
+			config.FixedField(srot, 12, 18),
+			config.FixedField(vibS, 12, 18),
+			config.FixedField(selec, 12, 18),
+			config.FixedField(hcorr, 10, 15),
+			config.FixedField(gcorr, 10, 15))
 	}
 	appendMolarTable := func(scale float64, energyUnit string) {
 		b.WriteString("\n# units: T=K energies=" + energyUnit + " entropy=" + energyUnit + "/K\n")
 		if model == "local_harmonic" {
-			b.WriteString("# " + config.Right("T/K", 11) + config.Right("ZPE", 16) + config.Right("U_vib", 16) +
-				config.Right("S_vib", 19) + config.Right("TS_vib", 16) + config.Right("F_vib", 16) + "\n")
+			b.WriteString("# " + fmt.Sprintf("%11s", "T/K") + fmt.Sprintf("%16s", "ZPE") + fmt.Sprintf("%16s", "U_vib") +
+				fmt.Sprintf("%19s", "S_vib") + fmt.Sprintf("%16s", "TS_vib") + fmt.Sprintf("%16s", "F_vib") + "\n")
 			fmt.Fprintf(&b, "  %s%s%s%s%s%s\n",
-				config.Right(config.FormatFixed(T, 3), 11),
-				config.Right(config.FormatFixed(zpe*scale, 10), 16),
-				config.Right(config.FormatFixed(vibU*scale, 10), 16),
-				config.Right(config.FormatFixed(vibS*scale, 12), 19),
-				config.Right(config.FormatFixed(T*vibS*scale, 10), 16),
-				config.Right(config.FormatFixed(vibF*scale, 10), 16))
+				config.FixedField(T, 3, 11),
+				config.FixedField(zpe*scale, 10, 16),
+				config.FixedField(vibU*scale, 10, 16),
+				config.FixedField(vibS*scale, 12, 19),
+				config.FixedField(T*vibS*scale, 10, 16),
+				config.FixedField(vibF*scale, 10, 16))
 		} else {
-			b.WriteString("# " + config.Right("T/K", 11) + config.Right("ZPE", 15) + config.Right("U_vib", 15) +
-				config.Right("H_trans", 15) + config.Right("U_rot", 15) +
-				config.Right("S_trans", 18) + config.Right("S_rot", 18) +
-				config.Right("S_vib", 18) + config.Right("S_elec", 18) +
-				config.Right("H_corr", 15) + config.Right("G_corr", 15) + "\n")
+			b.WriteString("# " + fmt.Sprintf("%11s", "T/K") + fmt.Sprintf("%15s", "ZPE") + fmt.Sprintf("%15s", "U_vib") +
+				fmt.Sprintf("%15s", "H_trans") + fmt.Sprintf("%15s", "U_rot") +
+				fmt.Sprintf("%18s", "S_trans") + fmt.Sprintf("%18s", "S_rot") +
+				fmt.Sprintf("%18s", "S_vib") + fmt.Sprintf("%18s", "S_elec") +
+				fmt.Sprintf("%15s", "H_corr") + fmt.Sprintf("%15s", "G_corr") + "\n")
 			fmt.Fprintf(&b, "  %s%s%s%s%s%s%s%s%s%s%s\n",
-				config.Right(config.FormatFixed(T, 3), 11),
-				config.Right(config.FormatFixed(zpe*scale, 10), 15),
-				config.Right(config.FormatFixed(vibU*scale, 10), 15),
-				config.Right(config.FormatFixed(htrans*scale, 10), 15),
-				config.Right(config.FormatFixed(urot*scale, 10), 15),
-				config.Right(config.FormatFixed(strans*scale, 12), 18),
-				config.Right(config.FormatFixed(srot*scale, 12), 18),
-				config.Right(config.FormatFixed(vibS*scale, 12), 18),
-				config.Right(config.FormatFixed(selec*scale, 12), 18),
-				config.Right(config.FormatFixed(hcorr*scale, 10), 15),
-				config.Right(config.FormatFixed(gcorr*scale, 10), 15))
+				config.FixedField(T, 3, 11),
+				config.FixedField(zpe*scale, 10, 15),
+				config.FixedField(vibU*scale, 10, 15),
+				config.FixedField(htrans*scale, 10, 15),
+				config.FixedField(urot*scale, 10, 15),
+				config.FixedField(strans*scale, 12, 18),
+				config.FixedField(srot*scale, 12, 18),
+				config.FixedField(vibS*scale, 12, 18),
+				config.FixedField(selec*scale, 12, 18),
+				config.FixedField(hcorr*scale, 10, 15),
+				config.FixedField(gcorr*scale, 10, 15))
 		}
 	}
 	appendMolarTable(evToKcalMol, "kcal/mol")
