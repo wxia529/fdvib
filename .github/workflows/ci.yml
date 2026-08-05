@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2026 Wanting Xia
+
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Check formatting
+        run: |
+          unformatted="$(gofmt -l cmd internal)"
+          if [[ -n "$unformatted" ]]; then
+            echo "Unformatted files:" >&2
+            echo "$unformatted" >&2
+            exit 1
+          fi
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build binary
+        run: |
+          go build -ldflags "-X main.version=0.0.0-test" -o /tmp/fdvib ./cmd/fdvib
+          if [[ "$(/tmp/fdvib --version)" != "fdvib 0.0.0-test" ]]; then
+            echo "version injection failed" >&2
+            exit 1
+          fi

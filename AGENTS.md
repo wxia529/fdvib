@@ -13,8 +13,10 @@ writer), `modes` (rigid-body classification and mode selection), `export`
 simulate `pw.x` and `dynmat.x` for integration tests. Templates are in
 `examples/local/` and `examples/gas/`. GitHub Pages sources are in `docs/`:
 keep operational guidance in `index.md`, and equations, algorithms, and
-physical limitations in `theory.md` without duplication. Releases use
-`.github/workflows/release.yml`.
+physical limitations in `theory.md` without duplication. CI runs
+formatting, vet, and the test suite on every push and pull request
+(`.github/workflows/ci.yml`); version tags build the release archive
+(`.github/workflows/release.yml`).
 
 ## Build, Test, and Development Commands
 
