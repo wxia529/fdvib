@@ -13,7 +13,7 @@ import (
 )
 
 // TestFormatMatchesCPP verifies that FormatGeneral/FormatSci/FormatFixed
-// reproduce libstdc++ iostream output byte-for-byte for a broad set of
+// match the frozen formatting baseline byte-for-byte for a broad set of
 // values and precisions; fmt_cpp.txt is the frozen format baseline.
 func TestFormatMatchesCPP(t *testing.T) {
 	f, err := os.Open("testdata/fmt_cpp.txt")
