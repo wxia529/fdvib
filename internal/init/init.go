@@ -48,7 +48,7 @@ func InitializeInput(typeName, directory string) error {
 	}
 	destination := filepath.Join(directory, "fdvib.in")
 	if _, err := os.Lstat(destination); err == nil {
-		return fmt.Errorf("Refuse to overwrite existing %s", config.DisplayPath(destination))
+		return fmt.Errorf("refusing to overwrite existing %s", config.DisplayPath(destination))
 	}
 	if err := config.WriteText(destination, contents); err != nil {
 		return err

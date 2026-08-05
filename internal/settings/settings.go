@@ -38,7 +38,7 @@ type Settings struct {
 func From(configPath, rootOverride string) (*Settings, error) {
 	absPath, err := filepath.Abs(configPath)
 	if err != nil {
-		return nil, fmt.Errorf("Cannot resolve %s", configPath)
+		return nil, fmt.Errorf("cannot resolve %s", configPath)
 	}
 	s := &Settings{ConfigPath: absPath}
 	if rootOverride == "" {
@@ -46,7 +46,7 @@ func From(configPath, rootOverride string) (*Settings, error) {
 	} else {
 		abs, err := filepath.Abs(rootOverride)
 		if err != nil {
-			return nil, fmt.Errorf("Cannot resolve %s", rootOverride)
+			return nil, fmt.Errorf("cannot resolve %s", rootOverride)
 		}
 		s.Root = abs
 	}

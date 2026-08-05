@@ -455,7 +455,7 @@ func TestCalculateLock(t *testing.T) {
 		t.Fatal(err)
 	}
 	err = Calculate(s)
-	if err == nil || !strings.Contains(err.Error(), "Calculation is already running") {
+	if err == nil || !strings.Contains(err.Error(), "calculation is already running") {
 		t.Errorf("expected lock refusal, got %v", err)
 	}
 	syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
@@ -578,7 +578,7 @@ func TestCalculateRefusesChangedDataset(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := Calculate(s)
-	if err == nil || !strings.Contains(err.Error(), "Dataset differs from the existing calculation") {
+	if err == nil || !strings.Contains(err.Error(), "dataset differs from the existing calculation") {
 		t.Errorf("expected dataset error, got %v", err)
 	}
 }
@@ -592,7 +592,7 @@ func TestCalculateRefusesNonEmptyOutdirWithoutState(t *testing.T) {
 	os.WriteFile(filepath.Join(s.Workdir, "junk", "x"), []byte("x"), 0o644)
 	t.Setenv("FDVIB_FAKE_STATE", t.TempDir())
 	err := Calculate(s)
-	if err == nil || !strings.Contains(err.Error(), "Refusing to use non-empty outdir without FDVIB state metadata") {
+	if err == nil || !strings.Contains(err.Error(), "refusing to use non-empty outdir without fdvib state metadata") {
 		t.Errorf("expected refusal, got %v", err)
 	}
 }
@@ -612,7 +612,7 @@ func TestCalculateFailureExitCode(t *testing.T) {
 	}
 	t.Setenv("FDVIB_FAKE_STATE", t.TempDir())
 	err = Calculate(s)
-	if err == nil || !strings.Contains(err.Error(), "Reference SCF failed with exit code 1") {
+	if err == nil || !strings.Contains(err.Error(), "reference SCF failed with exit code 1") {
 		t.Errorf("expected exit-code error, got %v", err)
 	}
 }

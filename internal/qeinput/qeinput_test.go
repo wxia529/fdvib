@@ -249,12 +249,12 @@ func TestParseQeInputMissingCards(t *testing.T) {
 	content := strings.ReplaceAll(waterScf,
 		"ATOMIC_POSITIONS angstrom\n  O  0.0  0.0  0.0\n  H  0.757  0.586  0.0\n  H  -0.757  0.586  0.0\n", "")
 	_, err := ParseQeInput(writeScf(t, t.TempDir(), content))
-	if err == nil || !strings.Contains(err.Error(), "Require ATOMIC_SPECIES, ATOMIC_POSITIONS, and CELL_PARAMETERS") {
+	if err == nil || !strings.Contains(err.Error(), "require ATOMIC_SPECIES, ATOMIC_POSITIONS, and CELL_PARAMETERS") {
 		t.Errorf("missing positions card: %v", err)
 	}
 	content = strings.ReplaceAll(waterScf, "CELL_PARAMETERS angstrom\n  10.0  0.0  0.0\n  0.0  10.0  0.0\n  0.0  0.0  10.0\n", "")
 	_, err = ParseQeInput(writeScf(t, t.TempDir(), content))
-	if err == nil || !strings.Contains(err.Error(), "Require ATOMIC_SPECIES, ATOMIC_POSITIONS, and CELL_PARAMETERS") {
+	if err == nil || !strings.Contains(err.Error(), "require ATOMIC_SPECIES, ATOMIC_POSITIONS, and CELL_PARAMETERS") {
 		t.Errorf("missing cell card: %v", err)
 	}
 }

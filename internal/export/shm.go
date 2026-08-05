@@ -47,11 +47,11 @@ func validateShm(path string) error {
 	lines := config.SplitLines(text)
 	for _, line := range lines {
 		if line == "" {
-			return fmt.Errorf("Generated SHM contains an empty line")
+			return fmt.Errorf("generated SHM contains an empty line")
 		}
 	}
 	if len(lines) == 0 || text[len(text)-1] != '\n' {
-		return fmt.Errorf("Generated SHM must end with a newline")
+		return fmt.Errorf("generated SHM must end with a newline")
 	}
 	names := []string{"*E", "*wavenum", "*atoms", "*elevel"}
 	tags := make([]int, 4)
@@ -63,44 +63,44 @@ func validateShm(path string) error {
 			}
 		}
 		if len(found) != 1 {
-			return fmt.Errorf("Generated SHM must contain exactly one %s tag", name)
+			return fmt.Errorf("generated SHM must contain exactly one %s tag", name)
 		}
 		tags[ti] = found[0]
 	}
 	if !(tags[0]+1 < tags[1] && tags[1] < tags[2] && tags[2]+1 < tags[3]) {
-		return fmt.Errorf("Generated SHM sections are missing data or out of order")
+		return fmt.Errorf("generated SHM sections are missing data or out of order")
 	}
 	if tags[1] != tags[0]+2 {
-		return fmt.Errorf("Generated SHM *E section must contain one value")
+		return fmt.Errorf("generated SHM *E section must contain one value")
 	}
 	{
 		fields := strings.Fields(lines[tags[0]+1])
 		value, err := config.Number(fields[0])
 		if len(fields) != 1 || err != nil {
-			return fmt.Errorf("Invalid SHM electronic energy")
+			return fmt.Errorf("invalid SHM electronic energy")
 		}
 		_ = value
 	}
 	for i := tags[1] + 1; i < tags[2]; i++ {
 		fields := strings.Fields(lines[i])
 		if _, err := config.Number(fields[0]); len(fields) != 1 || err != nil {
-			return fmt.Errorf("Invalid SHM wavenumber")
+			return fmt.Errorf("invalid SHM wavenumber")
 		}
 	}
 	for i := tags[2] + 1; i < tags[3]; i++ {
 		fields := strings.Fields(lines[i])
 		if len(fields) != 5 {
-			return fmt.Errorf("Invalid SHM atom row")
+			return fmt.Errorf("invalid SHM atom row")
 		}
 		mass, err := config.Number(fields[1])
 		if err != nil {
-			return fmt.Errorf("Invalid SHM atom row")
+			return fmt.Errorf("invalid SHM atom row")
 		}
 		coords := make([]float64, 3)
 		for k := 0; k < 3; k++ {
 			x, err := config.Number(fields[2+k])
 			if err != nil {
-				return fmt.Errorf("Invalid SHM atom row")
+				return fmt.Errorf("invalid SHM atom row")
 			}
 			coords[k] = x
 		}
@@ -109,32 +109,32 @@ func validateShm(path string) error {
 			math.IsInf(coords[0], 0) || math.IsNaN(coords[0]) ||
 			math.IsInf(coords[1], 0) || math.IsNaN(coords[1]) ||
 			math.IsInf(coords[2], 0) || math.IsNaN(coords[2]) {
-			return fmt.Errorf("Invalid SHM atom row")
+			return fmt.Errorf("invalid SHM atom row")
 		}
 	}
 	hasGround := false
 	for i := tags[3] + 1; i < len(lines); i++ {
 		fields := strings.Fields(lines[i])
 		if len(fields) != 2 {
-			return fmt.Errorf("Invalid SHM electronic-level row")
+			return fmt.Errorf("invalid SHM electronic-level row")
 		}
 		energy, err := config.Number(fields[0])
 		if err != nil {
-			return fmt.Errorf("Invalid SHM electronic-level row")
+			return fmt.Errorf("invalid SHM electronic-level row")
 		}
 		degeneracy, err := strconv.Atoi(fields[1])
 		if err != nil {
-			return fmt.Errorf("Invalid SHM electronic-level row")
+			return fmt.Errorf("invalid SHM electronic-level row")
 		}
 		if math.IsInf(energy, 0) || math.IsNaN(energy) || energy < 0.0 || degeneracy <= 0 {
-			return fmt.Errorf("Invalid SHM electronic-level row")
+			return fmt.Errorf("invalid SHM electronic-level row")
 		}
 		if energy == 0.0 {
 			hasGround = true
 		}
 	}
 	if tags[3]+1 == len(lines) || !hasGround {
-		return fmt.Errorf("Generated SHM requires a ground electronic level")
+		return fmt.Errorf("generated SHM requires a ground electronic level")
 	}
 	return nil
 }
@@ -181,7 +181,7 @@ func Shm(resultsDir string) error {
 		}
 		outputSymbols[i] = sym
 		if !(geometry.Masses[i] > 0.0) {
-			return fmt.Errorf("SHM export requires positive atomic masses")
+			return fmt.Errorf("shm export requires positive atomic masses")
 		}
 	}
 
@@ -207,7 +207,7 @@ func Shm(resultsDir string) error {
 	destination := filepath.Join(resultsDir, strings.TrimSuffix(filepath.Base(dyn), ".dynG")+".shm")
 	temporary := destination + ".tmp"
 	if _, err := os.Stat(temporary); err == nil {
-		return fmt.Errorf("Stale SHM temporary file exists: %s", temporary)
+		return fmt.Errorf("stale SHM temporary file exists: %s", temporary)
 	}
 	if err := config.WriteText(temporary, b.String()); err != nil {
 		return err

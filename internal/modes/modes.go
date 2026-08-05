@@ -33,7 +33,7 @@ func inertiaEigenvalues(g *qevibration.DynGeometry, context string) ([3]float64,
 		totalMass += m
 	}
 	if !(totalMass > 0.0) {
-		return [3]float64{}, fmt.Errorf("Invalid total mass for %s", context)
+		return [3]float64{}, fmt.Errorf("invalid total mass for %s", context)
 	}
 	var center config.Vec3
 	for i := range g.Masses {
@@ -102,7 +102,7 @@ func clamp(x, lo, hi float64) float64 {
 // like retain_largest_modes().
 func retainLargestModes(modes []qevibration.Mode, keep int, classification, context string) (*ModeSelection, error) {
 	if keep > len(modes) {
-		return nil, fmt.Errorf("Requested %s vibration count exceeds available modes", context)
+		return nil, fmt.Errorf("requested %s vibration count exceeds available modes", context)
 	}
 	order := make([]int, len(modes))
 	for i := range order {
@@ -156,12 +156,12 @@ func metadataSelectedAtoms(metadata *results.ResultMetadata, nat int) ([]int, er
 		}
 	}
 	if len(selected) == 0 {
-		return nil, fmt.Errorf("Local SHM export requires selected_atoms in metadata.dat")
+		return nil, fmt.Errorf("local SHM export requires selected_atoms in metadata.dat")
 	}
 	unique := make(map[int]bool)
 	for _, atom := range selected {
 		if atom < 1 || atom > nat || unique[atom] {
-			return nil, fmt.Errorf("Invalid/duplicate selected atom in metadata.dat")
+			return nil, fmt.Errorf("invalid or duplicate selected atom in metadata.dat")
 		}
 		unique[atom] = true
 	}

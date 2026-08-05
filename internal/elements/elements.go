@@ -58,7 +58,7 @@ func StandardElementSymbol(label, context string) (string, error) {
 			return one, nil
 		}
 	}
-	return "", fmt.Errorf("Cannot map species label to a standard element for %s: %s", context, label)
+	return "", fmt.Errorf("cannot map species label to a standard element for %s: %s", context, label)
 }
 
 // AtomicNumberFromLabel returns the atomic number of the standard element

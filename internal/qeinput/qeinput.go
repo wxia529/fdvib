@@ -163,11 +163,11 @@ func ParseQeInput(p string) (*QEInput, error) {
 
 	mnat := natRe.FindStringSubmatch(q.CleanText)
 	if mnat == nil {
-		return nil, fmt.Errorf("Cannot find nat")
+		return nil, fmt.Errorf("cannot find nat in %s", p)
 	}
 	mntyp := ntypRe.FindStringSubmatch(q.CleanText)
 	if mntyp == nil {
-		return nil, fmt.Errorf("Cannot find ntyp")
+		return nil, fmt.Errorf("cannot find ntyp in %s", p)
 	}
 	q.Nat, _ = strconv.Atoi(mnat[1])
 	q.Ntyp, _ = strconv.Atoi(mntyp[1])
@@ -176,11 +176,11 @@ func ParseQeInput(p string) (*QEInput, error) {
 	}
 	mib := ibravRe.FindStringSubmatch(q.CleanText)
 	if mib == nil {
-		return nil, fmt.Errorf("Cannot find ibrav")
+		return nil, fmt.Errorf("cannot find ibrav in %s", p)
 	}
 	ibrav, _ := strconv.Atoi(mib[1])
 	if ibrav != 0 {
-		return nil, fmt.Errorf("FDVIB requires ibrav=0")
+		return nil, fmt.Errorf("fdvib requires ibrav=0")
 	}
 	if !scfRe.MatchString(q.CleanText) {
 		return nil, fmt.Errorf("scf.in must contain calculation='scf'")
@@ -190,7 +190,7 @@ func ParseQeInput(p string) (*QEInput, error) {
 	}
 	for _, m := range startingpotRe.FindAllStringSubmatch(q.CleanText, -1) {
 		if config.Lower(m[1]) == "file" {
-			return nil, fmt.Errorf("scf.in must not set startingpot='file'; FDVIB manages the reference density")
+			return nil, fmt.Errorf("scf.in must not set startingpot='file'; fdvib manages the reference density")
 		}
 	}
 	if m := prefixRe.FindStringSubmatch(q.CleanText); m != nil {
@@ -198,7 +198,7 @@ func ParseQeInput(p string) (*QEInput, error) {
 	}
 	if q.Prefix == "" || filepath.Base(q.Prefix) != q.Prefix ||
 		q.Prefix == "." || q.Prefix == ".." {
-		return nil, fmt.Errorf("QE prefix must be a non-empty filename prefix without directories")
+		return nil, fmt.Errorf("qe prefix must be a non-empty filename prefix without directories")
 	}
 
 	q.AlatAngstrom = alatAngstrom(q.CleanText)
@@ -217,7 +217,7 @@ func ParseQeInput(p string) (*QEInput, error) {
 				return nil, fmt.Errorf("ATOMIC_POSITIONS crystal_sg is not supported; use explicit crystal coordinates")
 			}
 			if !supportedPositionUnit(q.PositionsUnit) {
-				return nil, fmt.Errorf("Unsupported ATOMIC_POSITIONS unit: %s", q.PositionsUnit)
+				return nil, fmt.Errorf("unsupported ATOMIC_POSITIONS unit %s", q.PositionsUnit)
 			}
 			q.PosHeader = i
 			q.PosStart = i + 1
@@ -227,13 +227,13 @@ func ParseQeInput(p string) (*QEInput, error) {
 				return nil, fmt.Errorf("CELL_PARAMETERS must specify units: angstrom, bohr, or alat")
 			}
 			if !supportedCellUnit(q.CellUnit) {
-				return nil, fmt.Errorf("Unsupported CELL_PARAMETERS unit: %s", q.CellUnit)
+				return nil, fmt.Errorf("unsupported CELL_PARAMETERS unit %s", q.CellUnit)
 			}
 			q.CellHeader = i
 		}
 	}
 	if sp < 0 || q.PosStart < 0 || q.CellHeader < 0 {
-		return nil, fmt.Errorf("Require ATOMIC_SPECIES, ATOMIC_POSITIONS, and CELL_PARAMETERS")
+		return nil, fmt.Errorf("require ATOMIC_SPECIES, ATOMIC_POSITIONS, and CELL_PARAMETERS in scf.in")
 	}
 	lineCount := len(q.Lines)
 	if sp+q.Ntyp >= lineCount {
@@ -252,25 +252,25 @@ func ParseQeInput(p string) (*QEInput, error) {
 	for i := 0; i < q.Ntyp; i++ {
 		fields := strings.Fields(q.Lines[sp+1+i])
 		if len(fields) < 3 {
-			return nil, fmt.Errorf("Bad ATOMIC_SPECIES line")
+			return nil, fmt.Errorf("malformed ATOMIC_SPECIES line")
 		}
 		var x Species
 		x.Symbol = fields[0]
 		mass, _, ok := config.IstreamDouble(fields[1])
 		if !ok {
-			return nil, fmt.Errorf("Bad ATOMIC_SPECIES line")
+			return nil, fmt.Errorf("malformed ATOMIC_SPECIES line")
 		}
 		x.Mass = mass
 		x.Pseudo = fields[2]
 		if !(x.Mass > 0.0) || math.IsInf(x.Mass, 0) || math.IsNaN(x.Mass) {
-			return nil, fmt.Errorf("Atomic mass must be positive")
+			return nil, fmt.Errorf("atomic mass must be positive")
 		}
 		q.Species = append(q.Species, x)
 	}
 	for i := 0; i < q.Nat; i++ {
 		fields := strings.Fields(q.Lines[q.PosStart+i])
 		if len(fields) < 4 {
-			return nil, fmt.Errorf("Bad ATOMIC_POSITIONS line")
+			return nil, fmt.Errorf("malformed ATOMIC_POSITIONS line")
 		}
 		var a Atom
 		a.Symbol = fields[0]
@@ -279,7 +279,7 @@ func ParseQeInput(p string) (*QEInput, error) {
 			// failed, so the whole line is rejected like C++.
 			x, rest, ok := config.IstreamDouble(fields[1+k])
 			if !ok || rest != "" {
-				return nil, fmt.Errorf("Bad ATOMIC_POSITIONS line")
+				return nil, fmt.Errorf("malformed ATOMIC_POSITIONS line")
 			}
 			a.InputR[k] = x
 		}
@@ -292,7 +292,7 @@ func ParseQeInput(p string) (*QEInput, error) {
 			}
 		}
 		if typeIndex < 0 {
-			return nil, fmt.Errorf("Unknown species %s", a.Symbol)
+			return nil, fmt.Errorf("unknown species %s", a.Symbol)
 		}
 		a.Type = typeIndex + 1
 		q.Atoms = append(q.Atoms, a)
@@ -300,12 +300,12 @@ func ParseQeInput(p string) (*QEInput, error) {
 	for i := 0; i < 3; i++ {
 		fields := strings.Fields(q.Lines[q.CellHeader+1+i])
 		if len(fields) < 3 {
-			return nil, fmt.Errorf("Bad CELL_PARAMETERS")
+			return nil, fmt.Errorf("malformed CELL_PARAMETERS")
 		}
 		for k := 0; k < 3; k++ {
 			x, rest, ok := config.IstreamDouble(fields[k])
 			if !ok || rest != "" {
-				return nil, fmt.Errorf("Bad CELL_PARAMETERS")
+				return nil, fmt.Errorf("malformed CELL_PARAMETERS")
 			}
 			q.Cell[i][k] = x
 		}
@@ -422,7 +422,7 @@ func AttemptLines(q *QEInput, outdir string, sourceDir, runDir string) ([]string
 		}
 	}
 	if !found {
-		return nil, fmt.Errorf("Cannot find outdir in scf.in")
+		return nil, fmt.Errorf("cannot find outdir in scf.in")
 	}
 	return lines, nil
 }
@@ -484,14 +484,14 @@ func DisplacedInput(q *QEInput, atom, axis int, shift float64,
 			}
 		}
 		if control < 0 {
-			return "", fmt.Errorf("Cannot find &CONTROL in scf.in")
+			return "", fmt.Errorf("cannot find &CONTROL in scf.in")
 		}
 		end := control + 1
 		for end < len(lines) && config.Trim(config.StripComment(lines[end])) != "/" {
 			end++
 		}
 		if end == len(lines) {
-			return "", fmt.Errorf("Unterminated &CONTROL namelist")
+			return "", fmt.Errorf("unterminated &CONTROL namelist")
 		}
 		lines = append(lines[:end], append([]string{"  disk_io = 'minimal',\n"}, lines[end:]...)...)
 	}
@@ -518,7 +518,7 @@ func DisplacedInput(q *QEInput, atom, axis int, shift float64,
 				end++
 			}
 			if end == len(lines) {
-				return "", fmt.Errorf("Unterminated &ELECTRONS namelist")
+				return "", fmt.Errorf("unterminated &ELECTRONS namelist")
 			}
 			lines = append(lines[:end], append([]string{"  startingpot = 'file',\n"}, lines[end:]...)...)
 		} else {

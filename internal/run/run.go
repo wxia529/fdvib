@@ -74,11 +74,11 @@ func Calculate(s *settings.Settings) error {
 		}
 		if s.Multiplicity == 1 {
 			if nspin != 1 && !(nspin == 2 && hasMagnetization && math.Abs(magnetization) < 1e-8) {
-				return fmt.Errorf("Gas singlet requires nspin=1, or nspin=2 with tot_magnetization=0")
+				return fmt.Errorf("gas singlet requires nspin=1, or nspin=2 with tot_magnetization=0")
 			}
 		} else if nspin != 2 || !hasMagnetization ||
 			math.Abs(magnetization-float64(s.Multiplicity-1)) > 1e-8 {
-			return fmt.Errorf("Gas multiplicity requires nspin=2 and tot_magnetization=multiplicity-1")
+			return fmt.Errorf("gas multiplicity requires nspin=2 and tot_magnetization=multiplicity-1")
 		}
 	}
 	if err := initializeDataset(s, q, selected); err != nil {
@@ -107,11 +107,11 @@ func acquireLock(workdir string) (func(), error) {
 	lockPath := workdir + ".lock"
 	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o644)
 	if err != nil {
-		return nil, fmt.Errorf("Cannot open calculation lock: %s", lockPath)
+		return nil, fmt.Errorf("cannot open calculation lock: %s", lockPath)
 	}
 	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		f.Close()
-		return nil, fmt.Errorf("Calculation is already running: %s", workdir)
+		return nil, fmt.Errorf("calculation is already running: %s", workdir)
 	}
 	if err := f.Truncate(0); err == nil {
 		fmt.Fprintf(f, "pid=%d\n", os.Getpid())
@@ -159,7 +159,7 @@ func densityFile(attempt, prefix string) (string, error) {
 		}
 	}
 	if len(found) != 1 {
-		return "", fmt.Errorf("Expected exactly one non-empty charge-density.dat or charge-density.hdf5 in %s", save)
+		return "", fmt.Errorf("expected exactly one non-empty charge-density.dat or charge-density.hdf5 in %s", save)
 	}
 	return found[0], nil
 }
@@ -170,10 +170,10 @@ func removeDisplacementDensity(attempt, prefix string, referenceDensity string) 
 	copied := filepath.Join(attempt, "out", prefix+".save", filepath.Base(referenceDensity))
 	err := os.Remove(copied)
 	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("Cannot remove completed displacement charge density %s: %v", copied, err)
+		return fmt.Errorf("cannot remove completed displacement charge density %s: %v", copied, err)
 	}
 	if _, statErr := os.Stat(copied); statErr == nil {
-		return fmt.Errorf("Cannot remove completed displacement charge density: %s", copied)
+		return fmt.Errorf("cannot remove completed displacement charge density: %s", copied)
 	}
 	return nil
 }
@@ -200,7 +200,7 @@ func selectedAtoms(s *settings.Settings, nat int) ([]int, error) {
 	unique := make(map[int]bool)
 	for _, atom := range selected {
 		if atom < 1 || atom > nat || unique[atom] {
-			return nil, fmt.Errorf("Invalid/duplicate selected atom")
+			return nil, fmt.Errorf("invalid or duplicate selected atom")
 		}
 		unique[atom] = true
 	}
@@ -237,12 +237,12 @@ func initializeDataset(s *settings.Settings, q *qeinput.QEInput, selected []int)
 		if _, err := os.Stat(filepath.Join(stateDir, "dataset.state")); err != nil {
 			entries, readErr := os.ReadDir(s.Workdir)
 			if readErr == nil && len(entries) > 0 {
-				return fmt.Errorf("Refusing to use non-empty outdir without FDVIB state metadata: %s", s.Workdir)
+				return fmt.Errorf("refusing to use non-empty outdir without fdvib state metadata: %s", s.Workdir)
 			}
 		}
 	}
 	if err := os.MkdirAll(stateDir, 0o755); err != nil {
-		return fmt.Errorf("Cannot create %s", stateDir)
+		return fmt.Errorf("cannot create %s", stateDir)
 	}
 	dataset := filepath.Join(stateDir, "dataset.state")
 	if _, err := os.Stat(dataset); err == nil {
@@ -251,7 +251,7 @@ func initializeDataset(s *settings.Settings, q *qeinput.QEInput, selected []int)
 			return readErr
 		}
 		if existing != wanted {
-			return fmt.Errorf("Dataset differs from the existing calculation; use a different outdir")
+			return fmt.Errorf("dataset differs from the existing calculation; use a different outdir")
 		}
 	} else if err := config.WriteText(dataset, wanted); err != nil {
 		return err
@@ -302,7 +302,7 @@ func initializeDataset(s *settings.Settings, q *qeinput.QEInput, selected []int)
 			return err
 		}
 		if existing != cfg.String() {
-			return fmt.Errorf("FDVIB dataset snapshot is missing or modified: %s", configReference)
+			return fmt.Errorf("fdvib dataset snapshot is missing or modified: %s", configReference)
 		}
 	}
 	return nil
@@ -311,24 +311,24 @@ func initializeDataset(s *settings.Settings, q *qeinput.QEInput, selected []int)
 func copyFile(src, dst string) error {
 	in, err := os.Open(src)
 	if err != nil {
-		return fmt.Errorf("Cannot read %s", src)
+		return fmt.Errorf("cannot read %s", src)
 	}
 	defer in.Close()
 	fi, err := in.Stat()
 	if err != nil {
-		return fmt.Errorf("Cannot read %s", src)
+		return fmt.Errorf("cannot read %s", src)
 	}
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		return fmt.Errorf("Cannot write %s", dst)
+		return fmt.Errorf("cannot write %s", dst)
 	}
 	// fs::copy_file preserves the source permission bits.
 	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, fi.Mode().Perm())
 	if err != nil {
-		return fmt.Errorf("Cannot write %s", dst)
+		return fmt.Errorf("cannot write %s", dst)
 	}
 	defer out.Close()
 	if _, err := io.Copy(out, in); err != nil {
-		return fmt.Errorf("Cannot write %s", dst)
+		return fmt.Errorf("cannot write %s", dst)
 	}
 	return nil
 }
@@ -343,7 +343,7 @@ func ensureReference(s *settings.Settings, q *qeinput.QEInput) (*ReferenceSeed, 
 		}
 		fields := strings.Fields(text)
 		if len(fields) != 5 || !state.IsNumberedName(fields[0], "init_scf") {
-			return nil, fmt.Errorf("Invalid reference completion snapshot: %s", marker)
+			return nil, fmt.Errorf("invalid reference completion snapshot: %s", marker)
 		}
 		attemptName, densityName, densityDigest, pawName, pawDigest := fields[0], fields[1], fields[2], fields[3], fields[4]
 		attempt := filepath.Join(calculations, attemptName)
@@ -353,23 +353,23 @@ func ensureReference(s *settings.Settings, q *qeinput.QEInput) (*ReferenceSeed, 
 			return nil, err
 		}
 		if !isRegularFile(density) {
-			return nil, fmt.Errorf("Completed reference charge density is missing or modified: %s", density)
+			return nil, fmt.Errorf("completed reference charge density is missing or modified: %s", density)
 		}
 		d, err := state.FileDigest(density)
 		if err != nil {
 			return nil, err
 		}
 		if d != densityDigest {
-			return nil, fmt.Errorf("Completed reference charge density is missing or modified: %s", density)
+			return nil, fmt.Errorf("completed reference charge density is missing or modified: %s", density)
 		}
 		if pawName == "-" {
 			if pawDigest != "-" || fileExists(paw) {
-				return nil, fmt.Errorf("Completed reference PAW snapshot is inconsistent: %s", paw)
+				return nil, fmt.Errorf("completed reference PAW snapshot is inconsistent: %s", paw)
 			}
 		} else if pawName != "paw.txt" || !isRegularNonempty(paw) {
-			return nil, fmt.Errorf("Completed reference PAW data is missing or modified: %s", paw)
+			return nil, fmt.Errorf("completed reference PAW data is missing or modified: %s", paw)
 		} else if pd, err := state.FileDigest(paw); err != nil || pd != pawDigest {
-			return nil, fmt.Errorf("Completed reference PAW data is missing or modified: %s", paw)
+			return nil, fmt.Errorf("completed reference PAW data is missing or modified: %s", paw)
 		}
 		wantedMetadata, err := metadataText(s, filepath.Join(attempt, "scf.out"))
 		if err != nil {
@@ -377,14 +377,14 @@ func ensureReference(s *settings.Settings, q *qeinput.QEInput) (*ReferenceSeed, 
 		}
 		metadataPath := filepath.Join(s.Workdir, "metadata.dat")
 		if !isRegularFile(metadataPath) {
-			return nil, fmt.Errorf("Reference metadata is missing or modified: %s", metadataPath)
+			return nil, fmt.Errorf("reference metadata is missing or modified: %s", metadataPath)
 		}
 		existing, err := config.ReadText(metadataPath)
 		if err != nil {
 			return nil, err
 		}
 		if existing != wantedMetadata {
-			return nil, fmt.Errorf("Reference metadata is missing or modified: %s", metadataPath)
+			return nil, fmt.Errorf("reference metadata is missing or modified: %s", metadataPath)
 		}
 		fmt.Println("Preserved completed reference SCF")
 		seed := &ReferenceSeed{Density: density, DensityDigest: densityDigest, PawDigest: pawDigest}
@@ -408,7 +408,7 @@ func ensureReference(s *settings.Settings, q *qeinput.QEInput) (*ReferenceSeed, 
 		}
 		paw := filepath.Join(filepath.Dir(density), "paw.txt")
 		if fi, err := os.Stat(paw); err == nil && (!fi.Mode().IsRegular() || fi.Size() == 0) {
-			return nil, fmt.Errorf("Reference PAW data is not a non-empty regular file: %s", paw)
+			return nil, fmt.Errorf("reference PAW data is not a non-empty regular file: %s", paw)
 		}
 		wantedMetadata, err := metadataText(s, output)
 		if err != nil {
@@ -472,7 +472,7 @@ func ensureReference(s *settings.Settings, q *qeinput.QEInput) (*ReferenceSeed, 
 		return nil, err
 	}
 	if rc != 0 {
-		return nil, fmt.Errorf("Reference SCF failed with exit code %d", rc)
+		return nil, fmt.Errorf("reference SCF failed with exit code %d", rc)
 	}
 	return commit(attempt, false)
 }
@@ -493,7 +493,7 @@ func runDisplacements(s *settings.Settings, q *qeinput.QEInput, selected []int,
 					}
 					fields := strings.Fields(text)
 					if len(fields) != 2 || !state.IsNumberedName(fields[0], id) {
-						return fmt.Errorf("Invalid displacement completion snapshot: %s", marker)
+						return fmt.Errorf("invalid displacement completion snapshot: %s", marker)
 					}
 					savedAttempt, digest := fields[0], fields[1]
 					attempt := filepath.Join(calculations, savedAttempt)
@@ -503,14 +503,14 @@ func runDisplacements(s *settings.Settings, q *qeinput.QEInput, selected []int,
 						return err
 					}
 					if !isRegularFile(forces) {
-						return fmt.Errorf("Completed force data is missing or modified: %s", forces)
+						return fmt.Errorf("completed force data is missing or modified: %s", forces)
 					}
 					d, err := state.FileDigest(forces)
 					if err != nil {
 						return err
 					}
 					if d != digest {
-						return fmt.Errorf("Completed force data is missing or modified: %s", forces)
+						return fmt.Errorf("completed force data is missing or modified: %s", forces)
 					}
 					if err := removeDisplacementDensity(attempt, q.Prefix, reference.Density); err != nil {
 						return err
@@ -564,7 +564,7 @@ func runDisplacements(s *settings.Settings, q *qeinput.QEInput, selected []int,
 				}
 				seeded := filepath.Join(attempt, "out", q.Prefix+".save", filepath.Base(reference.Density))
 				if err := os.MkdirAll(filepath.Dir(seeded), 0o755); err != nil {
-					return fmt.Errorf("Cannot create %s", filepath.Dir(seeded))
+					return fmt.Errorf("cannot create %s", filepath.Dir(seeded))
 				}
 				if err := copyFile(reference.Density, seeded); err != nil {
 					return err
@@ -574,7 +574,7 @@ func runDisplacements(s *settings.Settings, q *qeinput.QEInput, selected []int,
 					return err
 				}
 				if d != reference.DensityDigest {
-					return fmt.Errorf("Copied reference charge density failed verification: %s", seeded)
+					return fmt.Errorf("copied reference charge density failed verification: %s", seeded)
 				}
 				if reference.Paw != "" {
 					seededPaw := filepath.Join(filepath.Dir(seeded), "paw.txt")
@@ -586,7 +586,7 @@ func runDisplacements(s *settings.Settings, q *qeinput.QEInput, selected []int,
 						return err
 					}
 					if pd != reference.PawDigest {
-						return fmt.Errorf("Copied reference PAW data failed verification: %s", seededPaw)
+						return fmt.Errorf("copied reference PAW data failed verification: %s", seededPaw)
 					}
 				}
 				cmd := s.PWCommand + " -inp pw.in"
@@ -620,7 +620,7 @@ func ensureAnalysis(s *settings.Settings) error {
 	dynmatIn := filepath.Join(resultsDir, "dynmat.in")
 	if _, err := os.Stat(marker); err == nil {
 		if !isRegularFile(dyn) || !isRegularFile(dynmatIn) {
-			return fmt.Errorf("Completed Hessian results are missing")
+			return fmt.Errorf("completed Hessian results are missing")
 		}
 		text, err := config.ReadText(marker)
 		if err != nil {
@@ -628,11 +628,11 @@ func ensureAnalysis(s *settings.Settings) error {
 		}
 		fields := strings.Fields(text)
 		if len(fields) != 3 {
-			return fmt.Errorf("Invalid Hessian completion snapshot: %s", marker)
+			return fmt.Errorf("invalid Hessian completion snapshot: %s", marker)
 		}
 		dynDigest, inputDigest, metadataDigest := fields[0], fields[1], fields[2]
 		if !isRegularFile(resultMetadata) {
-			return fmt.Errorf("Completed Hessian results were modified")
+			return fmt.Errorf("completed Hessian results were modified")
 		}
 		ok, err := digestsMatch(dyn, dynDigest)
 		if err != nil {
@@ -647,7 +647,7 @@ func ensureAnalysis(s *settings.Settings) error {
 			return err
 		}
 		if !ok || !ok2 || !ok3 {
-			return fmt.Errorf("Completed Hessian results were modified")
+			return fmt.Errorf("completed Hessian results were modified")
 		}
 		fmt.Println("Preserved completed Hessian analysis")
 		return nil
@@ -684,7 +684,7 @@ func ensureAnalysis(s *settings.Settings) error {
 			return err
 		}
 		if err := syscall.Rename(resultsDir, failed); err != nil {
-			return fmt.Errorf("Cannot move %s to %s", resultsDir, failed)
+			return fmt.Errorf("cannot move %s to %s", resultsDir, failed)
 		}
 		fmt.Printf("Preserved incomplete Hessian results in %s\n", config.DisplayPath(failed))
 	}
@@ -732,7 +732,7 @@ func ensureDynmat(s *settings.Settings) error {
 		calculationOutput := filepath.Join(calculation, "dynmat.out")
 		calculationFreq := filepath.Join(calculation, filepath.Base(finalFreq))
 		if !isRegularFile(calculationDyn) || !isRegularFile(calculationInput) {
-			return fmt.Errorf("dynmat calculation inputs differ from Hessian results: %s", calculation)
+			return fmt.Errorf("dynmat calculation inputs differ from hessian results: %s", calculation)
 		}
 		d1, err := state.FileDigest(calculationDyn)
 		if err != nil {
@@ -751,7 +751,7 @@ func ensureDynmat(s *settings.Settings) error {
 			return err
 		}
 		if d1 != d3 || d2 != d4 {
-			return fmt.Errorf("dynmat calculation inputs differ from Hessian results: %s", calculation)
+			return fmt.Errorf("dynmat calculation inputs differ from hessian results: %s", calculation)
 		}
 		if err := qeoutput.ValidateQeOutput(calculationOutput); err != nil {
 			return err
@@ -774,7 +774,7 @@ func ensureDynmat(s *settings.Settings) error {
 		}
 		fields := strings.Fields(text)
 		if len(fields) != 3 || !state.IsNumberedName(fields[0], "dynmat") {
-			return fmt.Errorf("Invalid dynmat completion snapshot: %s", stateMarker)
+			return fmt.Errorf("invalid dynmat completion snapshot: %s", stateMarker)
 		}
 		calculationName, outputDigest, freqDigest := fields[0], fields[1], fields[2]
 		calculation := filepath.Join(calculations, calculationName)
@@ -785,7 +785,7 @@ func ensureDynmat(s *settings.Settings) error {
 			return err
 		}
 		if !isRegularFile(finalFreq) {
-			return fmt.Errorf("Completed dynmat frequency output is missing")
+			return fmt.Errorf("completed dynmat frequency output is missing")
 		}
 		ok1, err := digestsMatch(finalOutput, outputDigest)
 		if err != nil {
@@ -804,10 +804,10 @@ func ensureDynmat(s *settings.Settings) error {
 			return err
 		}
 		if !ok1 || !ok2 {
-			return fmt.Errorf("Completed dynmat results were modified")
+			return fmt.Errorf("completed dynmat results were modified")
 		}
 		if !ok3 || !ok4 {
-			return fmt.Errorf("Completed dynmat calculation was modified: %s", calculation)
+			return fmt.Errorf("completed dynmat calculation was modified: %s", calculation)
 		}
 		if err := validateModes(); err != nil {
 			return err
@@ -865,12 +865,12 @@ func ensureDynmat(s *settings.Settings) error {
 		}
 		if _, err := os.Stat(finalOutput); err == nil {
 			if err := syscall.Rename(finalOutput, filepath.Join(failed, filepath.Base(finalOutput))); err != nil {
-				return fmt.Errorf("Cannot move %s", finalOutput)
+				return fmt.Errorf("cannot move %s", finalOutput)
 			}
 		}
 		if _, err := os.Stat(finalFreq); err == nil {
 			if err := syscall.Rename(finalFreq, filepath.Join(failed, filepath.Base(finalFreq))); err != nil {
-				return fmt.Errorf("Cannot move %s", finalFreq)
+				return fmt.Errorf("cannot move %s", finalFreq)
 			}
 		}
 		fmt.Printf("Preserved incomplete dynmat results in %s\n", config.DisplayPath(failed))
@@ -938,10 +938,10 @@ func ensureDynmat(s *settings.Settings) error {
 		return err
 	}
 	if _, err := os.Stat(finalOutput); err == nil {
-		return fmt.Errorf("Refuse to overwrite existing dynmat result")
+		return fmt.Errorf("refusing to overwrite existing dynmat result")
 	}
 	if _, err := os.Stat(finalFreq); err == nil {
-		return fmt.Errorf("Refuse to overwrite existing dynmat result")
+		return fmt.Errorf("refusing to overwrite existing dynmat result")
 	}
 	if err := copyFile(filepath.Join(attempt, "dynmat.out"), finalOutput); err != nil {
 		return err

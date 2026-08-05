@@ -95,7 +95,7 @@ func completedForces(s *settings.Settings, id string) (string, error) {
 	fields := strings.Fields(text)
 	if len(fields) != 2 || !strings.HasPrefix(fields[0], id+"_") ||
 		filepath.Base(fields[0]) != fields[0] {
-		return "", fmt.Errorf("Invalid displacement completion snapshot: %s", marker)
+		return "", fmt.Errorf("invalid displacement completion snapshot: %s", marker)
 	}
 	return filepath.Join(s.Workdir, "calculations", fields[0], "forces.dat"), nil
 }
@@ -158,13 +158,13 @@ func Analyze(s *settings.Settings) error {
 	}
 	resultsDir := filepath.Join(s.Workdir, "results")
 	if err := os.MkdirAll(resultsDir, 0o755); err != nil {
-		return fmt.Errorf("Cannot write %s", resultsDir)
+		return fmt.Errorf("cannot write %s", resultsDir)
 	}
 	dyn := filepath.Join(resultsDir, s.OutputPrefix+".dynG")
 	for _, p := range []string{dyn, filepath.Join(resultsDir, "dynmat.in"),
 		filepath.Join(resultsDir, "metadata.dat")} {
 		if _, err := os.Stat(p); err == nil {
-			return fmt.Errorf("Refuse to overwrite %s", p)
+			return fmt.Errorf("refusing to overwrite %s", p)
 		}
 	}
 	metadataText, err := config.ReadText(filepath.Join(s.Workdir, "metadata.dat"))
@@ -174,7 +174,7 @@ func Analyze(s *settings.Settings) error {
 	// fs::copy_file preserves the source permission bits.
 	if fi, statErr := os.Stat(filepath.Join(s.Workdir, "metadata.dat")); statErr == nil {
 		if err := os.WriteFile(filepath.Join(resultsDir, "metadata.dat"), []byte(metadataText), fi.Mode().Perm()); err != nil {
-			return fmt.Errorf("Cannot write %s", filepath.Join(resultsDir, "metadata.dat"))
+			return fmt.Errorf("cannot write %s", filepath.Join(resultsDir, "metadata.dat"))
 		}
 	} else {
 		return statErr

@@ -61,7 +61,7 @@ func gasVibrationalModes(modes []qevibration.Mode, rotorType string) (vibrations
 		rigidDof = 6
 	}
 	if len(modes) < rigidDof {
-		return nil, 0, fmt.Errorf("Not enough normal modes for gas RRHO rigid-body projection")
+		return nil, 0, fmt.Errorf("not enough normal modes for gas RRHO rigid-body projection")
 	}
 	order := make([]int, len(modes))
 	for i := range order {
@@ -84,7 +84,7 @@ func gasVibrationalModes(modes []qevibration.Mode, rotorType string) (vibrations
 			continue
 		}
 		if modes[i].Freq <= 0.0 {
-			return nil, 0, fmt.Errorf("Gas RRHO has an imaginary/non-positive vibrational mode at %s cm^-1; optimize the geometry before thermochemistry",
+			return nil, 0, fmt.Errorf("gas RRHO has an imaginary/non-positive vibrational mode at %s cm^-1; optimize the geometry before thermochemistry",
 				config.FormatGeneral(modes[i].Freq, 6))
 		}
 		vibrations = append(vibrations, modes[i])
@@ -108,7 +108,7 @@ func Thermo(resultsDir, thermoInput string) error {
 	}
 	model := config.Lower(c.Get("model", ""))
 	if model != "gas_rrho" && model != "local_harmonic" {
-		return fmt.Errorf("THERMO model must be gas_rrho or local_harmonic")
+		return fmt.Errorf("thermo model must be gas_rrho or local_harmonic")
 	}
 	if model == "local_harmonic" &&
 		(c.Has("pressure_atm") || c.Has("symmetry_number") ||
@@ -127,7 +127,7 @@ func Thermo(resultsDir, thermoInput string) error {
 		remove := config.Lower(d.Get("remove_interaction_blocks", ".false."))
 		removesBlocks := remove == ".true." || remove == "true" || remove == "t"
 		if asr != "no" {
-			return fmt.Errorf("Thermochemistry requires asr='no' in dynmat.in")
+			return fmt.Errorf("thermochemistry requires asr='no' in dynmat.in")
 		}
 		if model == "local_harmonic" && !removesBlocks {
 			return fmt.Errorf("local_harmonic requires remove_interaction_blocks=.true. in dynmat.in")
@@ -145,7 +145,7 @@ func Thermo(resultsDir, thermoInput string) error {
 	}
 	low := config.Lower(c.Get("low_frequency_model", "harmonic"))
 	if low != "harmonic" && low != "frequency_floor" {
-		return fmt.Errorf("Bad low_frequency_model")
+		return fmt.Errorf("invalid low_frequency_model")
 	}
 	if model == "gas_rrho" && low != "harmonic" {
 		return fmt.Errorf("gas_rrho requires low_frequency_model='harmonic'; rigid-body modes are excluded by molecular degrees of freedom")
@@ -222,7 +222,7 @@ func Thermo(resultsDir, thermoInput string) error {
 			return fmt.Errorf("rotor_type='atom' is valid only for a monatomic species")
 		}
 		if rotorType == "nonlinear" && len(g.Masses) < 3 {
-			return fmt.Errorf("A molecule with fewer than three atoms cannot be a nonlinear rotor")
+			return fmt.Errorf("molecule with fewer than three atoms cannot be a nonlinear rotor")
 		}
 	}
 
@@ -265,7 +265,7 @@ func Thermo(resultsDir, thermoInput string) error {
 		}
 		mult := metadata.Multiplicity
 		if patm <= 0 || sigma <= 0 || mult <= 0 {
-			return fmt.Errorf("Gas pressure, symmetry, and multiplicity must be positive")
+			return fmt.Errorf("gas pressure, symmetry, and multiplicity must be positive")
 		}
 		qtrans := math.Pow(2*units.PI*(mtot*units.AmuKg)*units.KBSI*T/(units.HSI*units.HSI), 1.5) *
 			(units.KBSI * T / (patm * units.AtmPa))
@@ -274,14 +274,14 @@ func Thermo(resultsDir, thermoInput string) error {
 		if rotorType == "linear" {
 			moment := math.Max(I[1], I[2])
 			if !(moment > 0.0) {
-				return fmt.Errorf("Invalid linear-molecule moment of inertia")
+				return fmt.Errorf("invalid linear-molecule moment of inertia")
 			}
 			qr := 8 * units.PI * units.PI * moment * units.KBSI * T / (float64(sigma) * units.HSI * units.HSI)
 			srot = units.KBEV * (math.Log(qr) + 1)
 			urot = units.KBEV * T
 		} else if rotorType == "nonlinear" {
 			if !(I[0] > 0.0 && I[1] > 0.0 && I[2] > 0.0) {
-				return fmt.Errorf("Invalid nonlinear-molecule moments of inertia")
+				return fmt.Errorf("invalid nonlinear-molecule moments of inertia")
 			}
 			qr := math.Sqrt(units.PI) / float64(sigma) *
 				math.Pow(8*units.PI*units.PI*units.KBSI*T/(units.HSI*units.HSI), 1.5) *

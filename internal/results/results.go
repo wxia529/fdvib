@@ -68,7 +68,7 @@ func ReadMetadata(results string, required bool) (*ResultMetadata, error) {
 	}
 	metadata.Program = config.Lower(c.Get("program", metadata.Program))
 	if metadata.Program != "qe" {
-		return nil, fmt.Errorf("Unsupported program in metadata.dat: %s", metadata.Program)
+		return nil, fmt.Errorf("unsupported program in metadata.dat: %s", metadata.Program)
 	}
 	metadata.ElectronicEnergyHartree, err = c.Real("electronic_energy_hartree", metadata.ElectronicEnergyHartree)
 	if err != nil {
@@ -86,7 +86,7 @@ func ReadMetadata(results string, required bool) (*ResultMetadata, error) {
 	}
 	if math.IsInf(metadata.ElectronicEnergyHartree, 0) ||
 		math.IsNaN(metadata.ElectronicEnergyHartree) || metadata.Multiplicity <= 0 {
-		return nil, fmt.Errorf("Invalid metadata.dat")
+		return nil, fmt.Errorf("invalid metadata.dat")
 	}
 	return metadata, nil
 }
@@ -96,12 +96,12 @@ func ReadMetadata(results string, required bool) (*ResultMetadata, error) {
 func ResultFiles(results, context string) (dyn, freq string, err error) {
 	info, err := os.Stat(results)
 	if err != nil || !info.IsDir() {
-		return "", "", fmt.Errorf("Not a result directory: %s", results)
+		return "", "", fmt.Errorf("not a result directory: %s", results)
 	}
 	var dyns, freqs []string
 	entries, err := os.ReadDir(results)
 	if err != nil {
-		return "", "", fmt.Errorf("Not a result directory: %s", results)
+		return "", "", fmt.Errorf("not a result directory: %s", results)
 	}
 	for _, entry := range entries {
 		if entry.IsDir() {

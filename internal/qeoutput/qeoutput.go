@@ -30,13 +30,13 @@ func ValidateQeOutput(output string) error {
 		return err
 	}
 	if !strings.Contains(text, "JOB DONE") {
-		return fmt.Errorf("JOB DONE not found: %s", output)
+		return fmt.Errorf("missing 'JOB DONE' marker in %s", output)
 	}
 	if convergenceRe.MatchString(text) {
-		return fmt.Errorf("SCF convergence was not achieved: %s", output)
+		return fmt.Errorf("scf convergence was not achieved in %s", output)
 	}
 	if errorRoutineRe.MatchString(text) {
-		return fmt.Errorf("QE reported Error in routine: %s", output)
+		return fmt.Errorf("qe reported 'Error in routine' in %s", output)
 	}
 	return nil
 }
@@ -53,7 +53,7 @@ func ParseForces(output string, nat int) ([]config.Vec3, error) {
 	}
 	pos := strings.LastIndex(text, "Forces acting on atoms")
 	if pos < 0 {
-		return nil, fmt.Errorf("Force block not found: %s", output)
+		return nil, fmt.Errorf("force block not found in %s", output)
 	}
 	f := make([]config.Vec3, nat)
 	got := make([]bool, nat)
@@ -66,7 +66,7 @@ func ParseForces(output string, nat int) ([]config.Vec3, error) {
 			i, _ := strconv.Atoi(m[1])
 			i--
 			if i < 0 || i >= nat || got[i] {
-				return nil, fmt.Errorf("Invalid/duplicate atom in force block: %s", output)
+				return nil, fmt.Errorf("invalid or duplicate atom in force block %s", output)
 			}
 			for k := 0; k < 3; k++ {
 				x, err := config.Number(m[2+k])
@@ -84,7 +84,7 @@ func ParseForces(output string, nat int) ([]config.Vec3, error) {
 			break
 		}
 	}
-	return nil, fmt.Errorf("Incomplete force block: %s", output)
+	return nil, fmt.Errorf("incomplete force block in %s", output)
 }
 
 // WriteForces writes a forces.dat cache file with 15-decimal scientific
@@ -116,18 +116,18 @@ func ReadForces(p string, nat int) ([]config.Vec3, error) {
 		}
 		fields := strings.Fields(line)
 		if len(fields) < 4 {
-			return nil, fmt.Errorf("Bad forces.dat: %s", p)
+			return nil, fmt.Errorf("malformed forces.dat %s", p)
 		}
 		i, err := strconv.Atoi(fields[0])
 		if err != nil || i < 1 || i > nat {
-			return nil, fmt.Errorf("Bad forces.dat: %s", p)
+			return nil, fmt.Errorf("malformed forces.dat %s", p)
 		}
 		for k := 0; k < 3; k++ {
 			// C++ reads with istream >> double (strtod prefix semantics);
 			// an unconsumed remainder fails the following read.
 			x, rest, ok := config.IstreamDouble(fields[1+k])
 			if !ok || rest != "" {
-				return nil, fmt.Errorf("Bad forces.dat: %s", p)
+				return nil, fmt.Errorf("malformed forces.dat %s", p)
 			}
 			f[i-1][k] = x
 		}
@@ -135,7 +135,7 @@ func ReadForces(p string, nat int) ([]config.Vec3, error) {
 	}
 	for i := 0; i < nat; i++ {
 		if !got[i] {
-			return nil, fmt.Errorf("Incomplete forces.dat: %s", p)
+			return nil, fmt.Errorf("incomplete forces.dat %s", p)
 		}
 	}
 	return f, nil
@@ -159,7 +159,7 @@ func ReadTotalEnergyHartree(output string) (float64, error) {
 		found = true
 	}
 	if !found {
-		return 0, fmt.Errorf("Cannot find converged QE total energy in %s", output)
+		return 0, fmt.Errorf("cannot find converged qe total energy in %s", output)
 	}
 	return energyRy / 2.0, nil
 }

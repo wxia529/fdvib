@@ -33,7 +33,7 @@ func fnv1a64(data []byte) uint64 {
 func FileDigest(p string) (string, error) {
 	data, err := os.ReadFile(p)
 	if err != nil {
-		return "", fmt.Errorf("Cannot read %s", p)
+		return "", fmt.Errorf("cannot read %s", p)
 	}
 	return fmt.Sprintf("%016x", fnv1a64(data)), nil
 }
@@ -63,7 +63,7 @@ func IsNumberedName(name, task string) bool {
 // like new_numbered_directory().
 func NewNumberedDirectory(parent, task string) (string, error) {
 	if err := os.MkdirAll(parent, 0o755); err != nil {
-		return "", fmt.Errorf("Cannot create %s", parent)
+		return "", fmt.Errorf("cannot create %s", parent)
 	}
 	n := 1
 	for {
@@ -71,7 +71,7 @@ func NewNumberedDirectory(parent, task string) (string, error) {
 		path := filepath.Join(parent, name)
 		if _, err := os.Stat(path); err != nil {
 			if err := os.MkdirAll(path, 0o755); err != nil {
-				return "", fmt.Errorf("Cannot create %s", path)
+				return "", fmt.Errorf("cannot create %s", path)
 			}
 			return path, nil
 		}
