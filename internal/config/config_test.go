@@ -134,3 +134,25 @@ func TestParseIntList(t *testing.T) {
 		t.Error("IntegerList should reject non-integers")
 	}
 }
+
+func TestFixedField(t *testing.T) {
+	// FixedField = right-padded fixed formatting with width, like
+	// `setw(width) << fixed << setprecision(prec) << v`.
+	cases := []struct {
+		v           float64
+		prec, width int
+		want        string
+	}{
+		{1.5, 2, 8, "    1.50"},
+		{1.5, 2, 4, "1.50"},
+		{0, 7, 12, "   0.0000000"},
+		{-3.25, 3, 10, "    -3.250"},
+		{math.Inf(1), 2, 6, "   inf"},
+		{math.NaN(), 2, 6, "   nan"},
+	}
+	for _, c := range cases {
+		if got := FixedField(c.v, c.prec, c.width); got != c.want {
+			t.Errorf("FixedField(%v, %d, %d) = %q, want %q", c.v, c.prec, c.width, got, c.want)
+		}
+	}
+}

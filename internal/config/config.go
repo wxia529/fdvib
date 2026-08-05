@@ -76,7 +76,7 @@ func stripKeyValueComment(line string) string {
 	return line
 }
 
-// Number parses a Fortran-style number (D/d exponents) and rejects
+// ParseNumber parses a Fortran-style number (D/d exponents) and rejects
 // non-finite values, like C++ number().
 func ParseNumber(s string) (float64, error) {
 	s = Unquote(strings.Trim(s, " \t\r\n"))
