@@ -65,8 +65,11 @@ func NewNumberedDirectory(parent, task string) (string, error) {
 	if err := os.MkdirAll(parent, 0o755); err != nil {
 		return "", fmt.Errorf("cannot create %s", parent)
 	}
-	n := 1
-	for {
+	// Guard against a pathological state where numbered directories exist
+	// beyond a reasonable bound (the C++ implementation loops without a
+	// limit; this only turns an eventual int overflow into an error).
+	const maxAttempts = 1000000
+	for n := 1; n <= maxAttempts; n++ {
 		name := NumberedName(task, n)
 		path := filepath.Join(parent, name)
 		if _, err := os.Stat(path); err != nil {
@@ -75,8 +78,8 @@ func NewNumberedDirectory(parent, task string) (string, error) {
 			}
 			return path, nil
 		}
-		n++
 	}
+	return "", fmt.Errorf("too many numbered %s directories in %s", task, parent)
 }
 
 // NumberedDirectories lists the task_NNN directories under parent sorted by

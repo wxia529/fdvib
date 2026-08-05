@@ -75,15 +75,19 @@ func validateShm(path string) error {
 	}
 	{
 		fields := strings.Fields(lines[tags[0]+1])
-		value, err := config.ParseNumber(fields[0])
-		if len(fields) != 1 || err != nil {
+		if len(fields) != 1 {
 			return fmt.Errorf("invalid SHM electronic energy")
 		}
-		_ = value
+		if _, err := config.ParseNumber(fields[0]); err != nil {
+			return fmt.Errorf("invalid SHM electronic energy")
+		}
 	}
 	for i := tags[1] + 1; i < tags[2]; i++ {
 		fields := strings.Fields(lines[i])
-		if _, err := config.ParseNumber(fields[0]); len(fields) != 1 || err != nil {
+		if len(fields) != 1 {
+			return fmt.Errorf("invalid SHM wavenumber")
+		}
+		if _, err := config.ParseNumber(fields[0]); err != nil {
 			return fmt.Errorf("invalid SHM wavenumber")
 		}
 	}

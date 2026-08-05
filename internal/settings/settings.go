@@ -64,8 +64,19 @@ func From(configPath, rootOverride string) (*Settings, error) {
 	if err := c.RequireOnly(allowed, "fdvib.in"); err != nil {
 		return nil, err
 	}
-	s.ScfInput = filepath.Join(s.Root, c.Get("scf_input", "scf.in"))
-	s.Workdir = filepath.Join(s.Root, c.Get("outdir", "fdvib"))
+	// Absolute paths override Root, matching C++ fs::path operator/.
+	scfInput := c.Get("scf_input", "scf.in")
+	if filepath.IsAbs(scfInput) {
+		s.ScfInput = scfInput
+	} else {
+		s.ScfInput = filepath.Join(s.Root, scfInput)
+	}
+	outdir := c.Get("outdir", "fdvib")
+	if filepath.IsAbs(outdir) {
+		s.Workdir = outdir
+	} else {
+		s.Workdir = filepath.Join(s.Root, outdir)
+	}
 	s.SystemType = strings.ToLower(c.Get("system_type", "local"))
 	s.Displacement, err = c.Real("displacement_angstrom", 0.01)
 	if err != nil {

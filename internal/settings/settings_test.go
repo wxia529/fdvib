@@ -106,3 +106,27 @@ func TestJobName(t *testing.T) {
 		}
 	}
 }
+
+func TestSettingsAbsolutePaths(t *testing.T) {
+	// Absolute scf_input/outdir override the fdvib.in directory, matching
+	// C++ fs::path operator/ semantics.
+	dir := t.TempDir()
+	absScf := filepath.Join(dir, "scf.abs")
+	absOut := filepath.Join(dir, "out.abs")
+	if err := os.WriteFile(absScf, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := filepath.Join(dir, "fdvib.in")
+	content := "scf_input = " + absScf + "\noutdir = " + absOut + "\nrun_dynmat = true\n"
+	writeFile(t, cfg, content)
+	s, err := From(cfg, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.ScfInput != absScf {
+		t.Errorf("ScfInput = %q, want %q", s.ScfInput, absScf)
+	}
+	if s.Workdir != absOut {
+		t.Errorf("Workdir = %q, want %q", s.Workdir, absOut)
+	}
+}
