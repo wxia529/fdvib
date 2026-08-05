@@ -78,7 +78,7 @@ func main() {
 			t = types[i]
 		}
 		_ = symbols
-		fmt.Printf("     atom %4d type %2d   force = %14.8f %14.8f %14.8f\n",
+		fmt.Printf("     atom %4d type %2d   force = %16.10f %16.10f %16.10f\n",
 			i+1, t, forces[i][0], forces[i][1], forces[i][2])
 		total += forces[i][0]*forces[i][0] + forces[i][1]*forces[i][1] + forces[i][2]*forces[i][2]
 	}

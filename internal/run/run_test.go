@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/wxia529/fdvib/internal/export"
 	"github.com/wxia529/fdvib/internal/settings"
 )
 
@@ -613,5 +614,183 @@ func TestCalculateFailureExitCode(t *testing.T) {
 	err = Calculate(s)
 	if err == nil || !strings.Contains(err.Error(), "Reference SCF failed with exit code 1") {
 		t.Errorf("expected exit-code error, got %v", err)
+	}
+}
+
+// makeCaseCustom builds a case with custom fake-potential parameters and an
+// optional extra fdvib.in block.
+func makeCaseCustom(t *testing.T, pw, dynmat, systemType, selected string, envs map[string]string, extra string) (*settings.Settings, string) {
+	t.Helper()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "scf.in"), []byte(waterScf), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	content := fmt.Sprintf("scf_input = scf.in\noutdir = fdvib\nsystem_type = %s\n"+
+		"selected_atoms = %s\ndisplacement_angstrom = 0.01\npw_command = %s\n"+
+		"prefix = system\nrun_dynmat = true\ndynmat_command = %s\n",
+		systemType, selected, pw, dynmat)
+	if systemType == "gas" {
+		content += "multiplicity = 1\n"
+	}
+	content += extra
+	fdvibIn := filepath.Join(dir, "fdvib.in")
+	if err := os.WriteFile(fdvibIn, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for k, v := range envs {
+		t.Setenv(k, v)
+	}
+	s, err := settings.From(fdvibIn, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return s, dir
+}
+
+func TestCalculateImaginaryModes(t *testing.T) {
+	// A negative potential produces imaginary frequencies: molden/shm keep
+	// them (signed), and local thermochemistry excludes and counts them.
+	pw, dynmat := buildFakeQE(t)
+	s, _ := makeCaseCustom(t, pw, dynmat, "local", "1,2,3",
+		map[string]string{"FDVIB_FAKE_A": "-0.1"}, "")
+	t.Setenv("FDVIB_FAKE_STATE", t.TempDir())
+	if _, err := captureStdout(func() error { return Calculate(s) }); err != nil {
+		t.Fatal(err)
+	}
+	fo, _ := os.ReadFile(filepath.Join(s.Workdir, "results", "system.freq.out"))
+	if !strings.Contains(string(fo), "-") {
+		t.Errorf("no imaginary frequencies in freq.out:\n%s", fo)
+	}
+	// shm keeps imaginary modes (negative wavenumbers).
+	resultsDir := filepath.Join(s.Workdir, "results")
+	if err := export.Shm(resultsDir); err != nil {
+		t.Fatal(err)
+	}
+	shmData, _ := os.ReadFile(filepath.Join(resultsDir, "system.shm"))
+	shmText := string(shmData)
+	if !strings.Contains(shmText, "-") {
+		t.Errorf("shm should retain imaginary wavenumbers:\n%s", shmText)
+	}
+	// thermo counts them.
+	thermoIn := filepath.Join(s.Root, "thermo.in")
+	content := "model = local_harmonic\ntemperature_k = 298.15\n" +
+		"low_frequency_model = frequency_floor\nfrequency_floor_cm1 = 100.0\n" +
+		"zero_tolerance_cm1 = 1.0\n"
+	os.WriteFile(thermoIn, []byte(content), 0o644)
+	if err := export.Thermo(resultsDir, thermoIn); err != nil {
+		t.Fatal(err)
+	}
+	td, _ := os.ReadFile(filepath.Join(resultsDir, "thermo.dat"))
+	tdText := string(td)
+	if !strings.Contains(tdText, "# imaginary_modes_excluded: ") {
+		t.Errorf("thermo.dat missing imaginary count:\n%s", tdText)
+	}
+}
+
+func TestThermoFrequencyFloor(t *testing.T) {
+	// A weak potential gives frequencies below the 100 cm^-1 floor, which
+	// must be raised and counted as floored.
+	pw, dynmat := buildFakeQE(t)
+	s, _ := makeCaseCustom(t, pw, dynmat, "local", "1,2,3",
+		map[string]string{"FDVIB_FAKE_A": "0.000001"}, "")
+	t.Setenv("FDVIB_FAKE_STATE", t.TempDir())
+	if _, err := captureStdout(func() error { return Calculate(s) }); err != nil {
+		t.Fatal(err)
+	}
+	resultsDir := filepath.Join(s.Workdir, "results")
+	fo, _ := os.ReadFile(filepath.Join(resultsDir, "system.freq.out"))
+	freqText := string(fo)
+	if strings.Contains(freqText, "-") && !strings.Contains(freqText, "freq (") {
+		t.Fatalf("unexpected freq.out:\n%s", freqText)
+	}
+	thermoIn := filepath.Join(s.Root, "thermo.in")
+	content := "model = local_harmonic\ntemperature_k = 298.15\n" +
+		"low_frequency_model = frequency_floor\nfrequency_floor_cm1 = 100.0\n" +
+		"zero_tolerance_cm1 = 1.0\n"
+	os.WriteFile(thermoIn, []byte(content), 0o644)
+	if err := export.Thermo(resultsDir, thermoIn); err != nil {
+		t.Fatal(err)
+	}
+	td, _ := os.ReadFile(filepath.Join(resultsDir, "thermo.dat"))
+	tdText := string(td)
+	floored := 0
+	for _, line := range strings.Split(tdText, "\n") {
+		if v, found := strings.CutPrefix(line, "# modes_floored: "); found {
+			floored, _ = strconv.Atoi(v)
+		}
+	}
+	if floored < 1 {
+		t.Errorf("expected floored modes > 0:\n%s", tdText)
+	}
+	if !strings.Contains(tdText, "# positive_modes_used: 9\n") {
+		t.Errorf("expected 9 used modes:\n%s", tdText)
+	}
+}
+
+func TestThermoGasExplicitParams(t *testing.T) {
+	// gas_rrho with explicit electronic_degeneracy and rotor_type.
+	pw, dynmat := buildFakeQE(t)
+	s, _ := makeCaseCustom(t, pw, dynmat, "gas", "all", nil, "")
+	t.Setenv("FDVIB_FAKE_STATE", t.TempDir())
+	if _, err := captureStdout(func() error { return Calculate(s) }); err != nil {
+		t.Fatal(err)
+	}
+	resultsDir := filepath.Join(s.Workdir, "results")
+	thermoIn := filepath.Join(s.Root, "thermo.in")
+	content := "model = gas_rrho\ntemperature_k = 298.15\npressure_atm = 1.0\n" +
+		"symmetry_number = 2\nelectronic_degeneracy = 3\nrotor_type = nonlinear\n" +
+		"low_frequency_model = harmonic\n"
+	os.WriteFile(thermoIn, []byte(content), 0o644)
+	if err := export.Thermo(resultsDir, thermoIn); err != nil {
+		t.Fatal(err)
+	}
+	td, _ := os.ReadFile(filepath.Join(resultsDir, "thermo.dat"))
+	tdText := string(td)
+	for _, want := range []string{"# rotor_type: nonlinear\n", "# rigid_body_modes_excluded: 6\n"} {
+		if !strings.Contains(tdText, want) {
+			t.Errorf("missing %q:\n%s", want, tdText)
+		}
+	}
+	// electronic degeneracy 3 shows up in S_elec > 0; verify the header
+	// table row exists.
+	if !strings.Contains(tdText, "S_elec") {
+		t.Errorf("gas table missing:\n%s", tdText)
+	}
+}
+
+func TestCalculateGasLinearMolecule(t *testing.T) {
+	// A linear triatomic (CO2-like) must classify as linear (3N-5 = 4
+	// internal modes) in the shm export.
+	pw, dynmat := buildFakeQE(t)
+	dir := t.TempDir()
+	scf := strings.ReplaceAll(waterScf, "  O  0.0  0.0  0.0\n  H  0.757  0.586  0.0\n  H  -0.757  0.586  0.0\n",
+		"  C  0.0  0.0  0.0\n  O  1.1  0.0  0.0\n  O  -1.1  0.0  0.0\n")
+	scf = strings.ReplaceAll(scf, "ATOMIC_SPECIES\n  O  15.9994  O.pbe.UPF\n  H  1.00794  H.pbe.UPF\n",
+		"ATOMIC_SPECIES\n  C  12.011  C.pbe.UPF\n  O  15.9994  O.pbe.UPF\n")
+	os.WriteFile(filepath.Join(dir, "scf.in"), []byte(scf), 0o644)
+	content := fmt.Sprintf("scf_input = scf.in\noutdir = fdvib\nsystem_type = gas\n"+
+		"selected_atoms = all\nmultiplicity = 1\ndisplacement_angstrom = 0.01\n"+
+		"pw_command = %s\nprefix = molecule\nrun_dynmat = true\ndynmat_command = %s\n", pw, dynmat)
+	fdvibIn := filepath.Join(dir, "fdvib.in")
+	os.WriteFile(fdvibIn, []byte(content), 0o644)
+	s, err := settings.From(fdvibIn, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("FDVIB_FAKE_STATE", t.TempDir())
+	out, err := captureStdout(func() error { return Calculate(s) })
+	if err != nil {
+		t.Fatalf("calculate: %v\n%s", err, out)
+	}
+	resultsDir := filepath.Join(s.Workdir, "results")
+	if err := export.Shm(resultsDir); err != nil {
+		t.Fatal(err)
+	}
+	out, err = captureStdout(func() error { return export.Shm(resultsDir) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "SHM mode selection: linear, retained 4") {
+		t.Errorf("linear classification wrong:\n%s", out)
 	}
 }

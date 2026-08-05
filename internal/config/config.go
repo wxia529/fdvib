@@ -332,6 +332,7 @@ func LogicalValue(c *Config, key string, required bool) (bool, error) {
 // IntegerList parses a comma/semicolon/space separated list of integers,
 // like integer_list().
 func IntegerList(s string) ([]int, error) {
+	original := s
 	s = strings.Map(func(r rune) rune {
 		if r == ',' || r == ';' {
 			return ' '
@@ -343,7 +344,7 @@ func IntegerList(s string) ([]int, error) {
 	for _, f := range fields {
 		x, err := strconv.Atoi(f)
 		if err != nil {
-			return nil, fmt.Errorf("Bad integer list: %s", s)
+			return nil, fmt.Errorf("Bad integer list: %s", original)
 		}
 		out = append(out, x)
 	}
