@@ -19,6 +19,11 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v5
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
       - name: Build and package
         id: package
         shell: bash
@@ -26,49 +31,29 @@ jobs:
           set -euo pipefail
 
           version="${GITHUB_REF_NAME#v}"
-          package="fdvib-${version}-linux-x86_64-glibc-2.17"
+          package="fdvib-${version}-linux-x86_64"
 
-          docker run --rm \
-            -e VERSION="$version" \
-            -e PACKAGE="$package" \
-            -v "$GITHUB_WORKSPACE:/workspace" \
-            -w /workspace \
-            quay.io/pypa/manylinux2014_x86_64:latest \
-            bash -lc '
-              set -euo pipefail
+          mkdir -p "dist/$package/bin" "dist/$package/share/doc/fdvib/reference" \
+                   "dist/$package/share/fdvib/examples"
 
-              cmake --version
-              gcc --version
-              rm -rf build-manylinux dist
-              cmake -S . -B build-manylinux \
-                -DCMAKE_BUILD_TYPE=Release \
-                -DCMAKE_EXE_LINKER_FLAGS="-static-libstdc++ -static-libgcc"
-              cmake --build build-manylinux --parallel
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+            go build -trimpath \
+            -ldflags "-s -w -X main.version=$version" \
+            -o "dist/$package/bin/fdvib" ./cmd/fdvib
 
-              reported_version="$(./build-manylinux/fdvib --version)"
-              if [[ "$reported_version" != "fdvib $VERSION" ]]; then
-                echo "Version $VERSION does not match $reported_version" >&2
-                exit 1
-              fi
+          reported_version="$(dist/$package/bin/fdvib --version)"
+          if [[ "$reported_version" != "fdvib $version" ]]; then
+            echo "Version $version does not match $reported_version" >&2
+            exit 1
+          fi
 
-              highest_glibc="$(readelf --version-info build-manylinux/fdvib \
-                | grep -oE "GLIBC_[0-9.]+" \
-                | sed "s/GLIBC_//" \
-                | sort -Vu \
-                | tail -1)"
-              if [[ "$(printf "%s\n" "$highest_glibc" 2.17 | sort -V | tail -1)" != "2.17" ]]; then
-                echo "Binary requires glibc $highest_glibc, expected at most 2.17" >&2
-                exit 1
-              fi
-              if ldd build-manylinux/fdvib | grep -Eq "libstdc\\+\\+|libgcc_s"; then
-                echo "C++ runtime libraries were not linked statically" >&2
-                exit 1
-              fi
+          install -m 644 README.md CHANGELOG.md LICENSE \
+            "dist/$package/share/doc/fdvib/"
+          cp -r docs/. "dist/$package/share/doc/fdvib/reference/"
+          cp -r examples/. "dist/$package/share/fdvib/examples/"
 
-              cmake --install build-manylinux --prefix "dist/$PACKAGE"
-              tar -C dist -czf "dist/$PACKAGE.tar.gz" "$PACKAGE"
-              (cd dist && sha256sum "$PACKAGE.tar.gz" > "$PACKAGE.tar.gz.sha256")
-            '
+          tar -C dist -czf "dist/$package.tar.gz" "$package"
+          (cd dist && sha256sum "$package.tar.gz" > "$package.tar.gz.sha256")
 
           echo "archive=dist/$package.tar.gz" >> "$GITHUB_OUTPUT"
           echo "checksum=dist/$package.tar.gz.sha256" >> "$GITHUB_OUTPUT"

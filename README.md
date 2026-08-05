@@ -1,7 +1,7 @@
 # FDVIB
 
-FDVIB is a C++17 tool designed for local finite-difference vibrational analysis
-in periodic systems with
+FDVIB is a command-line tool written in Go, designed for local
+finite-difference vibrational analysis in periodic systems with
 [Quantum ESPRESSO](https://www.quantum-espresso.org/). It can also treat
 isolated molecules. FDVIB generates Cartesian displacements, runs `pw.x`,
 constructs a Gamma-point dynamical matrix from central force differences, and
@@ -21,34 +21,33 @@ calculations.
 
 ## Requirements
 
-- CMake 3.12 or later
-- A C++17 compiler
+- Go 1.22 or later
 - Quantum ESPRESSO `pw.x` and `dynmat.x`
 
 ## Build
 
 ```sh
-cmake -S . -B build
-cmake --build build -j
+go build -ldflags "-X main.version=1.0.4" -o fdvib ./cmd/fdvib
 ```
 
-The executable is written to `build/fdvib`. To install it:
+The executable is written to `./fdvib` (or `bin/fdvib` with
+`go build ./cmd/fdvib`). To install it:
 
 ```sh
-cmake --install build --prefix "$HOME/.local"
+go install -ldflags "-X main.version=1.0.4" github.com/wxia529/fdvib/cmd/fdvib
 ```
 
 ## Linux releases
 
 Version tags produce a prebuilt Linux x86_64 archive on the GitHub Releases
-page. The binary targets glibc 2.17 or newer and statically links `libstdc++`
-and `libgcc`; it is therefore suitable for CentOS/RHEL 7 and most newer glibc
-distributions. The archive also contains the reference documentation, license,
-and configuration examples. Quantum ESPRESSO is not bundled.
+page. The binary is a statically linked Go executable with no glibc
+dependency; it runs on any modern Linux distribution. The archive also
+contains the reference documentation, license, and configuration examples.
+Quantum ESPRESSO is not bundled.
 
 ```sh
-tar -xzf fdvib-X.Y.Z-linux-x86_64-glibc-2.17.tar.gz
-install fdvib-X.Y.Z-linux-x86_64-glibc-2.17/bin/fdvib "$HOME/.local/bin/fdvib"
+tar -xzf fdvib-X.Y.Z-linux-x86_64.tar.gz
+install fdvib-X.Y.Z-linux-x86_64/bin/fdvib "$HOME/.local/bin/fdvib"
 ```
 
 ## Input

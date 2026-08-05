@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-08-05
+
+### Changed
+
+- Rewrite the codebase in Go (module `github.com/wxia529/fdvib`), replacing
+  the C++17 implementation and the CMake build. The CLI, input formats,
+  generated QE inputs, state/recovery markers, and all output files are
+  byte-for-byte compatible with 1.0.x; the release archive is now a
+  statically linked Go binary with no glibc dependency.
+- Add an automated test suite: unit tests for parsing and formatting, plus
+  end-to-end integration tests driven by fake `pw.x`/`dynmat.x` executables
+  that cover the full pipeline, resume/recovery paths, quarantine of
+  incomplete results, the calculation lock, and overwrite protection.
+
 ## [1.0.4] - 2026-07-06
 
 ### Changed
