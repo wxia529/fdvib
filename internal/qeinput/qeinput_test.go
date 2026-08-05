@@ -4,41 +4,13 @@
 package qeinput
 
 import (
+	"github.com/wxia529/fdvib/internal/fixtures"
 	"math"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
-
-const waterScf = `&CONTROL
-  calculation = 'scf'
-  prefix = 'h2o'
-  outdir = '/scratch/qe'
-  pseudo_dir = '../pseudo'
-  tprnfor = .true.
-/
-&SYSTEM
-  ibrav = 0
-  nat = 3
-  ntyp = 2
-  A = 10.0
-/
-&ELECTRONS
-  conv_thr = 1.0D-8
-/
-ATOMIC_SPECIES
-  O  15.9994  O.pbe.UPF
-  H  1.00794  H.pbe.UPF
-ATOMIC_POSITIONS angstrom
-  O  0.0  0.0  0.0
-  H  0.757  0.586  0.0
-  H  -0.757  0.586  0.0
-CELL_PARAMETERS angstrom
-  10.0  0.0  0.0
-  0.0  10.0  0.0
-  0.0  0.0  10.0
-`
 
 func writeScf(t *testing.T, dir, content string) string {
 	t.Helper()
@@ -50,7 +22,7 @@ func writeScf(t *testing.T, dir, content string) string {
 }
 
 func TestParseQeInput(t *testing.T) {
-	q, err := ParseQeInput(writeScf(t, t.TempDir(), waterScf))
+	q, err := ParseQeInput(writeScf(t, t.TempDir(), fixtures.WaterScf))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +51,7 @@ func TestParseQeInput(t *testing.T) {
 
 func TestParseQeInputUnits(t *testing.T) {
 	// bohr positions, alat cell with celldm(1)
-	content := strings.ReplaceAll(waterScf,
+	content := strings.ReplaceAll(fixtures.WaterScf,
 		"ATOMIC_POSITIONS angstrom\n  O  0.0  0.0  0.0\n",
 		"ATOMIC_POSITIONS bohr\n  O  0.0  0.0  0.0\n")
 	content = strings.ReplaceAll(content,
@@ -104,15 +76,15 @@ func TestParseQeInputUnits(t *testing.T) {
 
 func TestParseQeInputRejections(t *testing.T) {
 	cases := map[string]string{
-		"ibrav":      strings.ReplaceAll(waterScf, "ibrav = 0", "ibrav = 1"),
-		"not scf":    strings.ReplaceAll(waterScf, "calculation = 'scf'", "calculation = 'relax'"),
-		"no tprnfor": strings.ReplaceAll(waterScf, "tprnfor = .true.", ""),
-		"startingpot": strings.ReplaceAll(waterScf, "tprnfor = .true.",
+		"ibrav":      strings.ReplaceAll(fixtures.WaterScf, "ibrav = 0", "ibrav = 1"),
+		"not scf":    strings.ReplaceAll(fixtures.WaterScf, "calculation = 'scf'", "calculation = 'relax'"),
+		"no tprnfor": strings.ReplaceAll(fixtures.WaterScf, "tprnfor = .true.", ""),
+		"startingpot": strings.ReplaceAll(fixtures.WaterScf, "tprnfor = .true.",
 			"tprnfor = .true.\n  startingpot = 'file'"),
-		"no unit":         strings.ReplaceAll(waterScf, "ATOMIC_POSITIONS angstrom", "ATOMIC_POSITIONS"),
-		"bad unit":        strings.ReplaceAll(waterScf, "ATOMIC_POSITIONS angstrom", "ATOMIC_POSITIONS car"),
-		"crystal_sg":      strings.ReplaceAll(waterScf, "ATOMIC_POSITIONS angstrom", "ATOMIC_POSITIONS crystal_sg"),
-		"unknown species": strings.ReplaceAll(waterScf, "H  0.757", "X  0.757"),
+		"no unit":         strings.ReplaceAll(fixtures.WaterScf, "ATOMIC_POSITIONS angstrom", "ATOMIC_POSITIONS"),
+		"bad unit":        strings.ReplaceAll(fixtures.WaterScf, "ATOMIC_POSITIONS angstrom", "ATOMIC_POSITIONS car"),
+		"crystal_sg":      strings.ReplaceAll(fixtures.WaterScf, "ATOMIC_POSITIONS angstrom", "ATOMIC_POSITIONS crystal_sg"),
+		"unknown species": strings.ReplaceAll(fixtures.WaterScf, "H  0.757", "X  0.757"),
 	}
 	for name, content := range cases {
 		if _, err := ParseQeInput(writeScf(t, t.TempDir(), content)); err == nil {
@@ -122,7 +94,7 @@ func TestParseQeInputRejections(t *testing.T) {
 }
 
 func TestReferenceInput(t *testing.T) {
-	q, err := ParseQeInput(writeScf(t, t.TempDir(), waterScf))
+	q, err := ParseQeInput(writeScf(t, t.TempDir(), fixtures.WaterScf))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +114,7 @@ func TestReferenceInput(t *testing.T) {
 }
 
 func TestReferenceInputHomePseudo(t *testing.T) {
-	content := strings.ReplaceAll(waterScf, "pseudo_dir = '../pseudo'", "pseudo_dir = '~/lib/pseudo'")
+	content := strings.ReplaceAll(fixtures.WaterScf, "pseudo_dir = '../pseudo'", "pseudo_dir = '~/lib/pseudo'")
 	q, err := ParseQeInput(writeScf(t, t.TempDir(), content))
 	if err != nil {
 		t.Fatal(err)
@@ -158,7 +130,7 @@ func TestReferenceInputHomePseudo(t *testing.T) {
 }
 
 func TestDisplacedInput(t *testing.T) {
-	q, err := ParseQeInput(writeScf(t, t.TempDir(), waterScf))
+	q, err := ParseQeInput(writeScf(t, t.TempDir(), fixtures.WaterScf))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +157,7 @@ func TestDisplacedInput(t *testing.T) {
 }
 
 func TestDisplacedInputNoElectrons(t *testing.T) {
-	content := strings.ReplaceAll(waterScf, "&ELECTRONS\n  conv_thr = 1.0D-8\n/\n", "")
+	content := strings.ReplaceAll(fixtures.WaterScf, "&ELECTRONS\n  conv_thr = 1.0D-8\n/\n", "")
 	q, err := ParseQeInput(writeScf(t, t.TempDir(), content))
 	if err != nil {
 		t.Fatal(err)
@@ -203,7 +175,7 @@ func TestDisplacedInputNoElectrons(t *testing.T) {
 }
 
 func TestDisplacedInputCrystal(t *testing.T) {
-	content := strings.ReplaceAll(waterScf, "ATOMIC_POSITIONS angstrom", "ATOMIC_POSITIONS crystal")
+	content := strings.ReplaceAll(fixtures.WaterScf, "ATOMIC_POSITIONS angstrom", "ATOMIC_POSITIONS crystal")
 	content = strings.ReplaceAll(content, "  O  0.0  0.0  0.0\n", "  O  0.5  0.5  0.5\n")
 	content = strings.ReplaceAll(content, "  H  0.757  0.586  0.0\n", "  H  0.25  0.5  0.5\n")
 	content = strings.ReplaceAll(content, "  H  -0.757  0.586  0.0\n", "  H  0.75  0.5  0.5\n")
@@ -225,7 +197,7 @@ func TestParseQeInputIstreamSemantics(t *testing.T) {
 	// C++ istream >> double uses strtod prefix parsing: "15.9994D0"
 	// parses as 15.9994 and a D exponent in an atom coordinate makes the
 	// whole line fail, exactly like the C++ implementation.
-	content := strings.ReplaceAll(waterScf, "O  15.9994  O.pbe.UPF", "O  15.9994D0  O.pbe.UPF")
+	content := strings.ReplaceAll(fixtures.WaterScf, "O  15.9994  O.pbe.UPF", "O  15.9994D0  O.pbe.UPF")
 	q, err := ParseQeInput(writeScf(t, t.TempDir(), content))
 	if err != nil {
 		t.Fatal(err)
@@ -233,11 +205,11 @@ func TestParseQeInputIstreamSemantics(t *testing.T) {
 	if q.Species[0].Mass != 15.9994 {
 		t.Errorf("mass = %v, want 15.9994", q.Species[0].Mass)
 	}
-	content = strings.ReplaceAll(waterScf, "H  0.757  0.586  0.0", "H  0.757D0  0.586  0.0")
+	content = strings.ReplaceAll(fixtures.WaterScf, "H  0.757  0.586  0.0", "H  0.757D0  0.586  0.0")
 	if _, err := ParseQeInput(writeScf(t, t.TempDir(), content)); err == nil {
 		t.Error("D exponent in atom coordinates must fail like C++")
 	}
-	content = strings.ReplaceAll(waterScf, "10.0  0.0  0.0", "10.0D0  0.0  0.0")
+	content = strings.ReplaceAll(fixtures.WaterScf, "10.0  0.0  0.0", "10.0D0  0.0  0.0")
 	if _, err := ParseQeInput(writeScf(t, t.TempDir(), content)); err == nil {
 		t.Error("D exponent in cell parameters must fail like C++")
 	}
@@ -246,13 +218,13 @@ func TestParseQeInputIstreamSemantics(t *testing.T) {
 func TestParseQeInputMissingCards(t *testing.T) {
 	// Removing ATOMIC_POSITIONS must fail with the block-requirement error
 	// (C++ pos_start stays -1), not a generic parse failure.
-	content := strings.ReplaceAll(waterScf,
+	content := strings.ReplaceAll(fixtures.WaterScf,
 		"ATOMIC_POSITIONS angstrom\n  O  0.0  0.0  0.0\n  H  0.757  0.586  0.0\n  H  -0.757  0.586  0.0\n", "")
 	_, err := ParseQeInput(writeScf(t, t.TempDir(), content))
 	if err == nil || !strings.Contains(err.Error(), "require ATOMIC_SPECIES, ATOMIC_POSITIONS, and CELL_PARAMETERS") {
 		t.Errorf("missing positions card: %v", err)
 	}
-	content = strings.ReplaceAll(waterScf, "CELL_PARAMETERS angstrom\n  10.0  0.0  0.0\n  0.0  10.0  0.0\n  0.0  0.0  10.0\n", "")
+	content = strings.ReplaceAll(fixtures.WaterScf, "CELL_PARAMETERS angstrom\n  10.0  0.0  0.0\n  0.0  10.0  0.0\n  0.0  0.0  10.0\n", "")
 	_, err = ParseQeInput(writeScf(t, t.TempDir(), content))
 	if err == nil || !strings.Contains(err.Error(), "require ATOMIC_SPECIES, ATOMIC_POSITIONS, and CELL_PARAMETERS") {
 		t.Errorf("missing cell card: %v", err)

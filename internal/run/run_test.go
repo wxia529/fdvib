@@ -16,84 +16,51 @@ import (
 	"testing"
 
 	"github.com/wxia529/fdvib/internal/export"
+	"github.com/wxia529/fdvib/internal/fixtures"
 	"github.com/wxia529/fdvib/internal/settings"
 )
 
-const waterScf = `&CONTROL
-  calculation = 'scf'
-  prefix = 'h2o'
-  outdir = '/scratch/qe'
-  pseudo_dir = '../pseudo'
-  tprnfor = .true.
-/
-&SYSTEM
-  ibrav = 0
-  nat = 3
-  ntyp = 2
-/
-&ELECTRONS
-  conv_thr = 1.0D-8
-/
-ATOMIC_SPECIES
-  O  15.9994  O.pbe.UPF
-  H  1.00794  H.pbe.UPF
-ATOMIC_POSITIONS angstrom
-  O  0.0  0.0  0.0
-  H  0.757  0.586  0.0
-  H  -0.757  0.586  0.0
-CELL_PARAMETERS angstrom
-  10.0  0.0  0.0
-  0.0  10.0  0.0
-  0.0  0.0  10.0
-`
+// The fake QE binaries are compiled once for the whole package.
+var fakePw, fakeDynmat string
 
-// buildFakeQE compiles the fake pw.x and dynmat.x binaries.
-func buildFakeQE(t *testing.T) (pw, dynmat string) {
-	t.Helper()
-	dir := t.TempDir()
-	pw = filepath.Join(dir, "fakeqe-pw")
-	dynmat = filepath.Join(dir, "fakeqe-dynmat")
+func TestMain(m *testing.M) {
+	dir, err := os.MkdirTemp("", "fdvib-fakeqe-*")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	fakePw = filepath.Join(dir, "fakeqe-pw")
+	fakeDynmat = filepath.Join(dir, "fakeqe-dynmat")
 	for _, b := range []struct{ out, pkg string }{
-		{pw, "github.com/wxia529/fdvib/internal/fakeqe/pw"},
-		{dynmat, "github.com/wxia529/fdvib/internal/fakeqe/dynmat"},
+		{fakePw, "github.com/wxia529/fdvib/internal/fakeqe/pw"},
+		{fakeDynmat, "github.com/wxia529/fdvib/internal/fakeqe/dynmat"},
 	} {
 		cmd := exec.Command("go", "build", "-o", b.out, b.pkg)
 		cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			t.Fatalf("go build %s: %v\n%s", b.pkg, err, out)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			fmt.Fprintf(os.Stderr, "go build %s: %v\n%s", b.pkg, err, out)
+			os.Exit(1)
 		}
 	}
-	return pw, dynmat
+	code := m.Run()
+	os.RemoveAll(dir)
+	os.Exit(code)
+}
+
+// buildFakeQE returns the compiled fake pw.x and dynmat.x binaries.
+func buildFakeQE(t *testing.T) (pw, dynmat string) {
+	t.Helper()
+	return fakePw, fakeDynmat
 }
 
 // makeCase writes scf.in + fdvib.in and returns the settings.
 func makeCase(t *testing.T, pw, dynmat string, systemType string) (*settings.Settings, string) {
 	t.Helper()
-	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "scf.in"), []byte(waterScf), 0o644); err != nil {
-		t.Fatal(err)
-	}
 	selected := "1,2,3"
 	if systemType == "gas" {
 		selected = "all"
 	}
-	content := fmt.Sprintf("scf_input = scf.in\noutdir = fdvib\nsystem_type = %s\n"+
-		"selected_atoms = %s\ndisplacement_angstrom = 0.01\npw_command = %s\n"+
-		"prefix = system\nrun_dynmat = true\ndynmat_command = %s\n",
-		systemType, selected, pw, dynmat)
-	if systemType == "gas" {
-		content += "multiplicity = 1\n"
-	}
-	fdvibIn := filepath.Join(dir, "fdvib.in")
-	if err := os.WriteFile(fdvibIn, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	s, err := settings.From(fdvibIn, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	return s, dir
+	return makeCaseCustom(t, pw, dynmat, systemType, selected, nil, "")
 }
 
 // captureStdout runs fn with stdout redirected to a buffer.
@@ -467,7 +434,7 @@ func TestCalculateLock(t *testing.T) {
 func TestCalculateRunDynmatFalse(t *testing.T) {
 	pw, dynmat := buildFakeQE(t)
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "scf.in"), []byte(waterScf), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "scf.in"), []byte(fixtures.WaterScf), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	content := fmt.Sprintf("scf_input = scf.in\noutdir = fdvib\nsystem_type = local\n"+
@@ -537,7 +504,7 @@ func TestCalculateGas(t *testing.T) {
 func TestCalculateGasValidation(t *testing.T) {
 	pw, _ := buildFakeQE(t)
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "scf.in"), []byte(waterScf), 0o644)
+	os.WriteFile(filepath.Join(dir, "scf.in"), []byte(fixtures.WaterScf), 0o644)
 	content := fmt.Sprintf("scf_input = scf.in\noutdir = fdvib\nsystem_type = gas\n"+
 		"selected_atoms = all\ndisplacement_angstrom = 0.01\npw_command = %s\n"+
 		"prefix = system\nrun_dynmat = false\n", pw)
@@ -600,7 +567,7 @@ func TestCalculateRefusesNonEmptyOutdirWithoutState(t *testing.T) {
 func TestCalculateFailureExitCode(t *testing.T) {
 	// pw_command that fails: the reference SCF reports the exit code.
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "scf.in"), []byte(waterScf), 0o644)
+	os.WriteFile(filepath.Join(dir, "scf.in"), []byte(fixtures.WaterScf), 0o644)
 	content := "scf_input = scf.in\noutdir = fdvib\nsystem_type = local\n" +
 		"selected_atoms = 1,2,3\ndisplacement_angstrom = 0.01\n" +
 		"pw_command = /bin/false\nprefix = system\nrun_dynmat = false\n"
@@ -622,7 +589,7 @@ func TestCalculateFailureExitCode(t *testing.T) {
 func makeCaseCustom(t *testing.T, pw, dynmat, systemType, selected string, envs map[string]string, extra string) (*settings.Settings, string) {
 	t.Helper()
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "scf.in"), []byte(waterScf), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "scf.in"), []byte(fixtures.WaterScf), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	content := fmt.Sprintf("scf_input = scf.in\noutdir = fdvib\nsystem_type = %s\n"+
@@ -763,7 +730,7 @@ func TestCalculateGasLinearMolecule(t *testing.T) {
 	// internal modes) in the shm export.
 	pw, dynmat := buildFakeQE(t)
 	dir := t.TempDir()
-	scf := strings.ReplaceAll(waterScf, "  O  0.0  0.0  0.0\n  H  0.757  0.586  0.0\n  H  -0.757  0.586  0.0\n",
+	scf := strings.ReplaceAll(fixtures.WaterScf, "  O  0.0  0.0  0.0\n  H  0.757  0.586  0.0\n  H  -0.757  0.586  0.0\n",
 		"  C  0.0  0.0  0.0\n  O  1.1  0.0  0.0\n  O  -1.1  0.0  0.0\n")
 	scf = strings.ReplaceAll(scf, "ATOMIC_SPECIES\n  O  15.9994  O.pbe.UPF\n  H  1.00794  H.pbe.UPF\n",
 		"ATOMIC_SPECIES\n  C  12.011  C.pbe.UPF\n  O  15.9994  O.pbe.UPF\n")
