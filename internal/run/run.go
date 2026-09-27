@@ -18,6 +18,7 @@ import (
 	"syscall"
 
 	"github.com/wxia529/fdvib/internal/config"
+	"github.com/wxia529/fdvib/internal/diagnostics"
 	"github.com/wxia529/fdvib/internal/hessian"
 	"github.com/wxia529/fdvib/internal/process"
 	"github.com/wxia529/fdvib/internal/qeinput"
@@ -43,13 +44,30 @@ var (
 
 // Calculate runs the full calculation, like calculate() in prepare_run.cpp.
 func Calculate(s *settings.Settings) error {
-	unlock, err := acquireLock(s.Workdir)
+	return CalculateWithDiagnostics(s, nil)
+}
+
+// CalculateWithDiagnostics adds optional timing without changing calculation state.
+func CalculateWithDiagnostics(s *settings.Settings, log *diagnostics.Logger) (resultErr error) {
+	end := log.Begin("calculate", diagnostics.Fields{"workdir": s.Workdir})
+	defer func() { end(resultErr) }()
+	var unlock func()
+	err := log.Do("lock.acquire", nil, func() error {
+		var e error
+		unlock, e = acquireLock(s.Workdir)
+		return e
+	})
 	if err != nil {
 		return err
 	}
 	defer unlock()
 
-	q, err := qeinput.ParseQeInput(s.ScfInput)
+	var q *qeinput.QEInput
+	err = log.Do("input.parse", diagnostics.Fields{"path": s.ScfInput}, func() error {
+		var e error
+		q, e = qeinput.ParseQeInput(s.ScfInput)
+		return e
+	})
 	if err != nil {
 		return err
 	}
@@ -81,20 +99,21 @@ func Calculate(s *settings.Settings) error {
 			return fmt.Errorf("gas multiplicity requires nspin=2 and tot_magnetization=multiplicity-1")
 		}
 	}
-	if err := initializeDataset(s, q, selected); err != nil {
+	log.Event("calculation.settings", diagnostics.Fields{"selected_atoms": len(selected), "system_type": s.SystemType, "nat": q.Nat})
+	if err := log.Do("dataset.initialize", nil, func() error { return initializeDataset(s, q, selected) }); err != nil {
 		return err
 	}
-	reference, err := ensureReference(s, q)
+	reference, err := ensureReference(s, q, log)
 	if err != nil {
 		return err
 	}
-	if err := runDisplacements(s, q, selected, reference); err != nil {
+	if err := runDisplacements(s, q, selected, reference, log); err != nil {
 		return err
 	}
-	if err := ensureAnalysis(s); err != nil {
+	if err := log.Do("analysis", nil, func() error { return ensureAnalysis(s) }); err != nil {
 		return err
 	}
-	if err := ensureDynmat(s); err != nil {
+	if err := ensureDynmat(s, log); err != nil {
 		return err
 	}
 	fmt.Println("FDVIB calculation completed")
@@ -333,7 +352,11 @@ func copyFile(src, dst string) error {
 	return nil
 }
 
-func ensureReference(s *settings.Settings, q *qeinput.QEInput) (*ReferenceSeed, error) {
+func ensureReference(s *settings.Settings, q *qeinput.QEInput, log *diagnostics.Logger) (seedResult *ReferenceSeed, resultErr error) {
+	log.SetTask("init_scf", "")
+	defer log.SetTask("", "")
+	end := log.Begin("reference", nil)
+	defer func() { end(resultErr) }()
 	calculations := filepath.Join(s.Workdir, "calculations")
 	marker := filepath.Join(s.Workdir, "state", "init_scf.complete")
 	if _, err := os.Stat(marker); err == nil {
@@ -346,6 +369,7 @@ func ensureReference(s *settings.Settings, q *qeinput.QEInput) (*ReferenceSeed, 
 			return nil, fmt.Errorf("invalid reference completion snapshot: %s", marker)
 		}
 		attemptName, densityName, densityDigest, pawName, pawDigest := fields[0], fields[1], fields[2], fields[3], fields[4]
+		log.SetTask("init_scf", attemptName)
 		attempt := filepath.Join(calculations, attemptName)
 		density := filepath.Join(attempt, "out", q.Prefix+".save", densityName)
 		paw := filepath.Join(filepath.Dir(density), "paw.txt")
@@ -355,7 +379,7 @@ func ensureReference(s *settings.Settings, q *qeinput.QEInput) (*ReferenceSeed, 
 		if !isRegularFile(density) {
 			return nil, fmt.Errorf("completed reference charge density is missing or modified: %s", density)
 		}
-		d, err := state.FileDigest(density)
+		d, err := diagnosticDigest(log, "reference.density.verify", density)
 		if err != nil {
 			return nil, err
 		}
@@ -368,7 +392,7 @@ func ensureReference(s *settings.Settings, q *qeinput.QEInput) (*ReferenceSeed, 
 			}
 		} else if pawName != "paw.txt" || !isRegularNonempty(paw) {
 			return nil, fmt.Errorf("completed reference PAW data is missing or modified: %s", paw)
-		} else if pd, err := state.FileDigest(paw); err != nil || pd != pawDigest {
+		} else if pd, err := diagnosticDigest(log, "reference.paw.verify", paw); err != nil || pd != pawDigest {
 			return nil, fmt.Errorf("completed reference PAW data is missing or modified: %s", paw)
 		}
 		wantedMetadata, err := metadataText(s, filepath.Join(attempt, "scf.out"))
@@ -386,6 +410,7 @@ func ensureReference(s *settings.Settings, q *qeinput.QEInput) (*ReferenceSeed, 
 		if existing != wantedMetadata {
 			return nil, fmt.Errorf("reference metadata is missing or modified: %s", metadataPath)
 		}
+		log.Event("job.preserved", diagnostics.Fields{"attempt": attemptName})
 		fmt.Println("Preserved completed reference SCF")
 		seed := &ReferenceSeed{Density: density, DensityDigest: densityDigest, PawDigest: pawDigest}
 		if pawName == "paw.txt" {
@@ -418,13 +443,13 @@ func ensureReference(s *settings.Settings, q *qeinput.QEInput) (*ReferenceSeed, 
 			return nil, err
 		}
 		hasPaw := isRegularFile(paw)
-		densityDigest, err := state.FileDigest(density)
+		densityDigest, err := diagnosticDigest(log, "reference.density.verify", density)
 		if err != nil {
 			return nil, err
 		}
 		pawDigest := ""
 		if hasPaw {
-			pawDigest, err = state.FileDigest(paw)
+			pawDigest, err = diagnosticDigest(log, "reference.paw.verify", paw)
 			if err != nil {
 				return nil, err
 			}
@@ -439,6 +464,7 @@ func ensureReference(s *settings.Settings, q *qeinput.QEInput) (*ReferenceSeed, 
 			return nil, err
 		}
 		if recovered {
+			log.Event("job.recovered", diagnostics.Fields{"attempt": filepath.Base(calculation)})
 			fmt.Printf("Recovered completed initial SCF from %s\n", filepath.Base(calculation))
 		}
 		seed := &ReferenceSeed{Density: density, DensityDigest: densityDigest, PawDigest: pawDigest}
@@ -448,7 +474,13 @@ func ensureReference(s *settings.Settings, q *qeinput.QEInput) (*ReferenceSeed, 
 		return seed, nil
 	}
 	for _, calculation := range state.NumberedDirectories(calculations, "init_scf") {
-		seed, err := commit(calculation, true)
+		log.SetTask("init_scf", filepath.Base(calculation))
+		var seed *ReferenceSeed
+		err := log.Do("reference.recovery.check", nil, func() error {
+			var e error
+			seed, e = commit(calculation, true)
+			return e
+		})
 		if err == nil {
 			return seed, nil
 		}
@@ -458,6 +490,7 @@ func ensureReference(s *settings.Settings, q *qeinput.QEInput) (*ReferenceSeed, 
 	if err != nil {
 		return nil, err
 	}
+	log.SetTask("init_scf", filepath.Base(attempt))
 	input, err := qeinput.ReferenceInput(q, "./out", s.Root, attempt)
 	if err != nil {
 		return nil, err
@@ -467,7 +500,7 @@ func ensureReference(s *settings.Settings, q *qeinput.QEInput) (*ReferenceSeed, 
 	}
 	cmd := s.PWCommand + " -inp scf.in"
 	fmt.Println("Running unperturbed reference SCF")
-	rc, err := process.ShellRun(cmd, attempt, filepath.Join(attempt, "scf.out"))
+	rc, err := process.ShellRunWithDiagnostics(cmd, attempt, filepath.Join(attempt, "scf.out"), log)
 	if err != nil {
 		return nil, err
 	}
@@ -475,17 +508,29 @@ func ensureReference(s *settings.Settings, q *qeinput.QEInput) (*ReferenceSeed, 
 		return nil, fmt.Errorf("reference SCF failed with exit code %d; see %s", rc,
 			config.DisplayPath(filepath.Join(attempt, "scf.out")))
 	}
-	return commit(attempt, false)
+	var seed *ReferenceSeed
+	err = log.Do("reference.commit", nil, func() error {
+		var e error
+		seed, e = commit(attempt, false)
+		return e
+	})
+	return seed, err
 }
 
 func runDisplacements(s *settings.Settings, q *qeinput.QEInput, selected []int,
-	reference *ReferenceSeed) error {
+	reference *ReferenceSeed, log *diagnostics.Logger) (resultErr error) {
+	end := log.Begin("displacements", nil)
+	defer func() {
+		log.SetTask("", "")
+		end(resultErr)
+	}()
 	completed, preserved := 0, 0
 	calculations := filepath.Join(s.Workdir, "calculations")
 	for _, atom1 := range selected {
 		for axis := 0; axis < 3; axis++ {
 			for _, sign := range []int{1, -1} {
 				id := settings.JobName(atom1, axis, sign)
+				log.SetTask(id, "")
 				marker := filepath.Join(s.Workdir, "state", id+".complete")
 				if _, err := os.Stat(marker); err == nil {
 					text, err := config.ReadText(marker)
@@ -497,6 +542,7 @@ func runDisplacements(s *settings.Settings, q *qeinput.QEInput, selected []int,
 						return fmt.Errorf("invalid displacement completion snapshot: %s", marker)
 					}
 					savedAttempt, digest := fields[0], fields[1]
+					log.SetTask(id, savedAttempt)
 					attempt := filepath.Join(calculations, savedAttempt)
 					output := filepath.Join(attempt, "pw.out")
 					forces := filepath.Join(attempt, "forces.dat")
@@ -506,38 +552,50 @@ func runDisplacements(s *settings.Settings, q *qeinput.QEInput, selected []int,
 					if !isRegularFile(forces) {
 						return fmt.Errorf("completed force data is missing or modified: %s", forces)
 					}
-					d, err := state.FileDigest(forces)
+					d, err := diagnosticDigest(log, "forces.verify", forces)
 					if err != nil {
 						return err
 					}
 					if d != digest {
 						return fmt.Errorf("completed force data is missing or modified: %s", forces)
 					}
-					if err := removeDisplacementDensity(attempt, q.Prefix, reference.Density); err != nil {
+					if err := log.Do("density.remove", diagnostics.Fields{"job": id}, func() error { return removeDisplacementDensity(attempt, q.Prefix, reference.Density) }); err != nil {
 						return err
 					}
+					log.Event("job.preserved", diagnostics.Fields{"job": id, "attempt": savedAttempt})
 					preserved++
 					continue
 				}
 				commit := func(calculation string) error {
 					output := filepath.Join(calculation, "pw.out")
 					forces := filepath.Join(calculation, "forces.dat")
-					parsed, err := qeoutput.ParseForces(output, q.Nat)
+					var parsed []config.Vec3
+					err := log.Do("forces.parse", diagnostics.Fields{"path": output}, func() error {
+						var e error
+						parsed, e = qeoutput.ParseForces(output, q.Nat)
+						return e
+					})
 					if err != nil {
 						return err
 					}
-					if err := qeoutput.WriteForces(forces, parsed, output); err != nil {
+					if err := log.Do("forces.write", diagnostics.Fields{"path": forces}, func() error { return qeoutput.WriteForces(forces, parsed, output) }); err != nil {
 						return err
 					}
-					digest, err := state.FileDigest(forces)
+					digest, err := diagnosticDigest(log, "forces.verify", forces)
 					if err != nil {
 						return err
 					}
-					return config.WriteText(marker, filepath.Base(calculation)+" "+digest+"\n")
+					return log.Do("state.write", diagnostics.Fields{"path": marker}, func() error { return config.WriteText(marker, filepath.Base(calculation)+" "+digest+"\n") })
 				}
 				var recovered string
-				for _, calculation := range state.NumberedDirectories(calculations, id) {
-					if err := commit(calculation); err == nil {
+				var candidates []string
+				_ = log.Do("recovery.scan", diagnostics.Fields{"job": id}, func() error {
+					candidates = state.NumberedDirectories(calculations, id)
+					return nil
+				})
+				for _, calculation := range candidates {
+					log.SetTask(id, filepath.Base(calculation))
+					if err := log.Do("recovery.check", diagnostics.Fields{"job": id, "attempt": filepath.Base(calculation)}, func() error { return commit(calculation) }); err == nil {
 						recovered = calculation
 						break
 					}
@@ -548,51 +606,82 @@ func runDisplacements(s *settings.Settings, q *qeinput.QEInput, selected []int,
 						return err
 					}
 					fmt.Printf("Recovered completed %s from %s\n", id, filepath.Base(recovered))
+					log.Event("job.recovered", diagnostics.Fields{"job": id, "attempt": filepath.Base(recovered)})
 					completed++
 					continue
 				}
-				attempt, err := state.NewNumberedDirectory(calculations, id)
+				log.SetTask(id, "")
+				var attempt string
+				err := log.Do("attempt.create", diagnostics.Fields{"job": id}, func() error {
+					var e error
+					attempt, e = state.NewNumberedDirectory(calculations, id)
+					return e
+				})
 				if err != nil {
 					return err
 				}
-				input, err := qeinput.DisplacedInput(q, atom1-1, axis, float64(sign)*s.Displacement,
-					"./out", s.Root, attempt)
+				log.SetTask(id, filepath.Base(attempt))
+				var input string
+				err = log.Do("input.generate", nil, func() error {
+					var e error
+					input, e = qeinput.DisplacedInput(q, atom1-1, axis, float64(sign)*s.Displacement, "./out", s.Root, attempt)
+					return e
+				})
 				if err != nil {
 					return err
 				}
-				if err := config.WriteText(filepath.Join(attempt, "pw.in"), input); err != nil {
+				if err := log.Do("input.write", diagnostics.Fields{"job": id, "attempt": filepath.Base(attempt)}, func() error { return config.WriteText(filepath.Join(attempt, "pw.in"), input) }); err != nil {
 					return err
 				}
 				seeded := filepath.Join(attempt, "out", q.Prefix+".save", filepath.Base(reference.Density))
 				if err := os.MkdirAll(filepath.Dir(seeded), 0o755); err != nil {
 					return fmt.Errorf("cannot create %s", filepath.Dir(seeded))
 				}
-				if err := copyFile(reference.Density, seeded); err != nil {
+				attrs := diagnostics.Fields(nil)
+				if log != nil {
+					attrs = diagnostics.Fields{"job": id, "attempt": filepath.Base(attempt), "source": reference.Density, "destination": seeded}
+					if fi, e := os.Stat(reference.Density); e == nil {
+						attrs["bytes"] = fi.Size()
+					}
+				}
+				if err := log.Do("density.copy", attrs, func() error { return copyFile(reference.Density, seeded) }); err != nil {
 					return err
 				}
-				d, err := state.FileDigest(seeded)
+				var d string
+				err = log.Do("density.verify", attrs, func() error {
+					var e error
+					d, e = state.FileDigest(seeded)
+					if e == nil && d != reference.DensityDigest {
+						e = fmt.Errorf("copied reference charge density failed verification: %s", seeded)
+					}
+					return e
+				})
 				if err != nil {
 					return err
 				}
-				if d != reference.DensityDigest {
-					return fmt.Errorf("copied reference charge density failed verification: %s", seeded)
-				}
+
 				if reference.Paw != "" {
 					seededPaw := filepath.Join(filepath.Dir(seeded), "paw.txt")
-					if err := copyFile(reference.Paw, seededPaw); err != nil {
+					if err := log.Do("paw.copy", diagnostics.Fields{"source": reference.Paw, "destination": seededPaw}, func() error { return copyFile(reference.Paw, seededPaw) }); err != nil {
 						return err
 					}
-					pd, err := state.FileDigest(seededPaw)
+					var pd string
+					err := log.Do("paw.verify", nil, func() error {
+						var e error
+						pd, e = state.FileDigest(seededPaw)
+						if e == nil && pd != reference.PawDigest {
+							e = fmt.Errorf("copied reference PAW data failed verification: %s", seededPaw)
+						}
+						return e
+					})
 					if err != nil {
 						return err
 					}
-					if pd != reference.PawDigest {
-						return fmt.Errorf("copied reference PAW data failed verification: %s", seededPaw)
-					}
+
 				}
 				cmd := s.PWCommand + " -inp pw.in"
 				fmt.Printf("Running %s\n", id)
-				rc, err := process.ShellRun(cmd, attempt, filepath.Join(attempt, "pw.out"))
+				rc, err := process.ShellRunWithDiagnostics(cmd, attempt, filepath.Join(attempt, "pw.out"), log)
 				if err != nil {
 					return err
 				}
@@ -600,10 +689,10 @@ func runDisplacements(s *settings.Settings, q *qeinput.QEInput, selected []int,
 					return fmt.Errorf("%s failed with exit code %d; see %s", id, rc,
 						config.DisplayPath(filepath.Join(attempt, "pw.out")))
 				}
-				if err := commit(attempt); err != nil {
+				if err := log.Do("results.commit", diagnostics.Fields{"job": id, "attempt": filepath.Base(attempt)}, func() error { return commit(attempt) }); err != nil {
 					return err
 				}
-				if err := removeDisplacementDensity(attempt, q.Prefix, reference.Density); err != nil {
+				if err := log.Do("density.remove", diagnostics.Fields{"job": id}, func() error { return removeDisplacementDensity(attempt, q.Prefix, reference.Density) }); err != nil {
 					return err
 				}
 				completed++
@@ -708,7 +797,11 @@ func ensureAnalysis(s *settings.Settings) error {
 	return config.WriteText(marker, d1+" "+d2+" "+d3+"\n")
 }
 
-func ensureDynmat(s *settings.Settings) error {
+func ensureDynmat(s *settings.Settings, log *diagnostics.Logger) (resultErr error) {
+	log.SetTask("dynmat", "")
+	defer log.SetTask("", "")
+	end := log.Begin("dynmat", nil)
+	defer func() { end(resultErr) }()
 	if !s.RunDynmat {
 		fmt.Println("dynmat.x was not requested (run_dynmat=.false.)")
 		return nil
@@ -917,8 +1010,9 @@ func ensureDynmat(s *settings.Settings) error {
 	if err := copyFile(filepath.Join(resultsDir, "dynmat.in"), filepath.Join(attempt, "dynmat.in")); err != nil {
 		return err
 	}
+	log.SetTask("dynmat", filepath.Base(attempt))
 	fmt.Println("Running dynmat.x")
-	rc, err := process.ShellRun(s.DynmatCommand+" -inp dynmat.in", attempt, filepath.Join(attempt, "dynmat.out"))
+	rc, err := process.ShellRunWithDiagnostics(s.DynmatCommand+" -inp dynmat.in", attempt, filepath.Join(attempt, "dynmat.out"), log)
 	if err != nil {
 		return err
 	}
@@ -984,4 +1078,15 @@ func digestsMatch(p, want string) (bool, error) {
 		return false, err
 	}
 	return d == want, nil
+}
+
+// diagnosticDigest retains the existing digest algorithm and read behavior.
+func diagnosticDigest(log *diagnostics.Logger, phase, path string) (string, error) {
+	var digest string
+	err := log.Do(phase, diagnostics.Fields{"path": path}, func() error {
+		var err error
+		digest, err = state.FileDigest(path)
+		return err
+	})
+	return digest, err
 }

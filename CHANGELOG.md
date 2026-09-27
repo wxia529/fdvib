@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Optional `--debug` diagnostics for CLI commands, with stderr progress and
+  private JSON Lines logs. Calculation diagnostics record task preparation,
+  density copying and verification, recovery checks, external command timing,
+  and gaps between successive commands without changing calculation artifacts.
+- `--debug-log FILE` selects a new log file without overwriting existing files.
+
 ## [1.1.2] - 2026-08-05
 
 ### Changed

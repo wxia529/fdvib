@@ -13,6 +13,9 @@ import (
 	"os/exec"
 	"strings"
 	"syscall"
+	"time"
+
+	"github.com/wxia529/fdvib/internal/diagnostics"
 )
 
 // ShellQuote wraps s in single quotes for POSIX shells, escaping embedded
@@ -24,8 +27,22 @@ func ShellQuote(s string) string {
 // ShellRun executes cmd with /bin/sh -c in cwd, writing stdout and stderr to
 // stdoutPath (truncated), and returns the child exit code.
 func ShellRun(cmd, cwd, stdoutPath string) (int, error) {
+	return ShellRunWithDiagnostics(cmd, cwd, stdoutPath, nil)
+}
+
+// ShellRunWithDiagnostics preserves ShellRun semantics and records shell timing.
+func ShellRunWithDiagnostics(cmd, cwd, stdoutPath string, log *diagnostics.Logger) (rc int, resultErr error) {
+	end := log.Begin("process", diagnostics.Fields{"command": cmd, "cwd": cwd, "output": stdoutPath})
+	defer func() {
+		reported := resultErr
+		if reported == nil && rc != 0 {
+			reported = fmt.Errorf("command exited with code %d", rc)
+		}
+		end(reported)
+	}()
 	f, err := os.OpenFile(stdoutPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
 	if err != nil {
+		log.Event("process.open_failed", diagnostics.Fields{"path": stdoutPath, "error": err.Error()})
 		return 126, nil
 	}
 	defer f.Close()
@@ -34,7 +51,21 @@ func ShellRun(cmd, cwd, stdoutPath string) (int, error) {
 	sh.Dir = cwd
 	sh.Stdout = f
 	sh.Stderr = f
-	err = sh.Run()
+	err = sh.Start()
+	if err == nil {
+		started := time.Now()
+		log.ProcessStarted(started)
+		err = sh.Wait()
+		returned := time.Now()
+		code := -1
+		if sh.ProcessState != nil {
+			code = sh.ProcessState.ExitCode()
+			if ws, ok := sh.ProcessState.Sys().(syscall.WaitStatus); ok && ws.Signaled() {
+				code = 128 + int(ws.Signal())
+			}
+		}
+		log.ProcessReturned(returned, returned.Sub(started), code)
+	}
 	if err == nil {
 		return 0, nil
 	}

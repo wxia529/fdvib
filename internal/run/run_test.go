@@ -5,7 +5,10 @@ package run
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
+	"io/fs"
 	"math"
 	"os"
 	"os/exec"
@@ -15,6 +18,7 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/wxia529/fdvib/internal/diagnostics"
 	"github.com/wxia529/fdvib/internal/export"
 	"github.com/wxia529/fdvib/internal/fixtures"
 	"github.com/wxia529/fdvib/internal/settings"
@@ -759,5 +763,156 @@ func TestCalculateGasLinearMolecule(t *testing.T) {
 	}
 	if !strings.Contains(out, "SHM mode selection: linear, retained 4") {
 		t.Errorf("linear classification wrong:\n%s", out)
+	}
+}
+
+// Debug logging must preserve all calculation artifacts and normal stdout.
+func TestCalculateDebugCompatibility(t *testing.T) {
+	pw, dynmat := buildFakeQE(t)
+	s, _ := makeCase(t, pw, dynmat, "local")
+	t.Setenv("FDVIB_FAKE_STATE", t.TempDir())
+	snapshot := func() map[string]string {
+		t.Helper()
+		files := map[string]string{}
+		err := filepath.WalkDir(s.Workdir, func(path string, entry fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if entry.IsDir() {
+				return nil
+			}
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			rel, err := filepath.Rel(s.Workdir, path)
+			if err != nil {
+				return err
+			}
+			files[rel] = string(data)
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return files
+	}
+	baseline, err := captureStdout(func() error { return Calculate(s) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	wanted := snapshot()
+	if err := os.RemoveAll(s.Workdir); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "debug.jsonl")
+	log, err := diagnostics.Open(path, "test", io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	actual, err := captureStdout(func() error { return CalculateWithDiagnostics(s, log) })
+	log.Close(err)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if actual != baseline {
+		t.Fatalf("stdout changed: %s", actual)
+	}
+	got := snapshot()
+	if len(got) != len(wanted) {
+		t.Fatalf("artifact count changed: %d != %d", len(got), len(wanted))
+	}
+	for path, data := range wanted {
+		if got[path] != data {
+			t.Errorf("debug changed %s", path)
+		}
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	copies, transitions := 0, 0
+	for _, line := range bytes.Split(bytes.TrimSpace(data), []byte("\n")) {
+		var e map[string]any
+		if err := json.Unmarshal(line, &e); err != nil {
+			t.Fatal(err)
+		}
+		if e["event"] == "operation.end" && e["phase"] == "density.copy" {
+			copies++
+			if e["job"] == nil || e["attempt"] == nil || e["bytes"] == nil {
+				t.Fatalf("missing density context: %v", e)
+			}
+		}
+		if e["event"] == "process.transition" {
+			transitions++
+		}
+	}
+	if copies != 18 || transitions != 19 {
+		t.Fatalf("copy/transition counts: %d/%d", copies, transitions)
+	}
+	path = filepath.Join(t.TempDir(), "resume.jsonl")
+	log, err = diagnostics.Open(path, "test", io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = captureStdout(func() error { return CalculateWithDiagnostics(s, log) })
+	log.Close(err)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err = os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(data, []byte(`"event":"process.started"`)) || bytes.Contains(data, []byte(`"event":"process.transition"`)) {
+		t.Fatal("preserved tasks counted as new processes")
+	}
+	if !bytes.Contains(data, []byte(`"event":"job.preserved"`)) {
+		t.Fatal("missing preserved event")
+	}
+
+	// A rejected newer attempt is diagnostic context, not a failed run.
+	if err := os.Remove(filepath.Join(s.Workdir, "state", "disp_0001_x_p.complete")); err != nil {
+		t.Fatal(err)
+	}
+	badAttempt := filepath.Join(s.Workdir, "calculations", "disp_0001_x_p_002")
+	if err := os.Mkdir(badAttempt, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(badAttempt, "pw.out"), []byte("incomplete output\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	path = filepath.Join(t.TempDir(), "recovery.jsonl")
+	log, err = diagnostics.Open(path, "test", io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = captureStdout(func() error { return CalculateWithDiagnostics(s, log) })
+	log.Close(err)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err = os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(data, []byte(`"event":"job.recovered"`)) || bytes.Contains(data, []byte(`"event":"process.started"`)) {
+		t.Fatal("recovery did not preserve completed work")
+	}
+	var rejected, succeeded bool
+	for _, line := range bytes.Split(bytes.TrimSpace(data), []byte("\n")) {
+		var e map[string]any
+		if err := json.Unmarshal(line, &e); err != nil {
+			t.Fatal(err)
+		}
+		if e["phase"] == "recovery.check" && e["status"] == "error" && e["attempt"] == "disp_0001_x_p_002" {
+			rejected = true
+		}
+		if e["event"] == "run.end" && e["status"] == "success" {
+			succeeded = true
+		}
+	}
+	if !rejected || !succeeded {
+		t.Fatal("missing rejection context or successful final status")
 	}
 }
