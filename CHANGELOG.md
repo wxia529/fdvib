@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-28
+
 ### Added
 
 - Optional `--debug` diagnostics for CLI commands, with stderr progress and
@@ -328,7 +330,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Tag-triggered Linux release packaging through GitHub Actions.
 - BSD 3-Clause licensing.
 
-[Unreleased]: https://github.com/wxia529/fdvib/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/wxia529/fdvib/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/wxia529/fdvib/compare/v1.1.2...v1.2.0
 [1.0.2]: https://github.com/wxia529/fdvib/compare/v1.0.0...v1.0.2
 [1.0.0]: https://github.com/wxia529/fdvib/compare/v0.4.3...v1.0.0
 [0.4.3]: https://github.com/wxia529/fdvib/compare/v0.4.2...v0.4.3

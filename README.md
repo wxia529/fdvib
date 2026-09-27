@@ -39,14 +39,14 @@ new log file. See [diagnostics](docs/index.md#diagnostics) for timing details.
 ## Build
 
 ```sh
-go build -ldflags "-X main.version=1.1.2" -o fdvib ./cmd/fdvib
+go build -ldflags "-X main.version=1.2.0" -o fdvib ./cmd/fdvib
 ```
 
 The executable is written to `./fdvib` (or `bin/fdvib` with
 `go build ./cmd/fdvib`). To install it:
 
 ```sh
-go install -ldflags "-X main.version=1.1.2" github.com/wxia529/fdvib/cmd/fdvib
+go install -ldflags "-X main.version=1.2.0" github.com/wxia529/fdvib/cmd/fdvib
 ```
 
 ## Linux releases
