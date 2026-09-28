@@ -24,18 +24,6 @@ calculations.
 - Go 1.22 or later
 - Quantum ESPRESSO `pw.x` and `dynmat.x`
 
-## Diagnostics
-
-To diagnose slow task transitions or failures, add `--debug` to a command:
-
-```sh
-fdvib --debug -inp fdvib.in
-```
-
-Debug progress goes to stderr; a unique `fdvib-debug-*.jsonl` file is created
-in the current directory. Use `--debug-log FILE` with `--debug` to choose a
-new log file. See [diagnostics](docs/index.md#diagnostics) for timing details.
-
 ## Build
 
 ```sh
@@ -164,3 +152,15 @@ developers and contributors of both projects for their work.
 
 Copyright (c) 2026 Wanting Xia. FDVIB is distributed under the
 [BSD 3-Clause License](LICENSE).
+
+## Diagnostics
+
+To diagnose slow task transitions or failures, add `--debug` to a command:
+
+```sh
+fdvib --debug -inp fdvib.in
+```
+
+Debug progress goes to stderr; a unique `fdvib-debug-*.jsonl` file is created
+in the current directory. Use `--debug-log FILE` with `--debug` to choose a
+new log file. See [diagnostics](docs/index.md#diagnostics) for timing details.

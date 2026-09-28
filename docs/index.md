@@ -50,88 +50,6 @@ positive and negative displacement calculations, builds the force-constant
 matrix, and optionally runs `dynmat.x`. There is no restart option to set. Run
 the same command again to continue from the first incomplete stage.
 
-## Diagnostics
-
-Enable diagnostics when investigating a slow transition or a failed command:
-
-```bash
-fdvib --debug -inp fdvib.in
-fdvib modes fdvib/results --debug
-fdvib --debug --debug-log /scratch/fdvib-debug.jsonl -inp fdvib.in
-```
-
-The options may appear before or after the command. `--debug-log` requires
-`--debug`. Help and version requests do not create logs. Without `--debug`,
-the existing command output and calculation behavior are unchanged.
-
-Each invocation creates a private (0600) JSON Lines log. By default its unique
-name is `fdvib-debug-*.jsonl` in the current working directory, outside the
-calculation directory. The path is printed to stderr. A specified file must
-not exist, and its parent directory must already exist. Choose a path outside
-the FDVIB output directory to keep diagnostic files separate from calculation
-data, especially when starting with an empty output directory.
-
-Normal output remains on stdout. Additional progress appears on stderr:
-
-```text
-[fdvib debug] disp_0001_x_m: density.copy started
-[fdvib debug] disp_0001_x_m: density.copy success, 0.102 s
-[fdvib debug] disp_0001_x_m: density.verify started
-```
-
-Operations are logged before they execute, then again on completion with their
-duration and status. An operation with no end event has not recorded completion;
-it may still be running, or the process or logging may have stopped. This is
-not a calculation completion marker. Diagnostics never participate in dataset
-digests or recovery decisions.
-
-Calculation logs cover input and dataset checks, reference and displacement
-stages, recovery scans, attempt creation, input generation, density and PAW
-copying and verification, force-result commits, density cleanup, Hessian
-analysis, and dynmat execution. Export commands have command-level timing.
-The log records file sizes for displacement reference-density copies and
-the external command, working directory, output path, and exit code.
-
-For a pause between calculations, inspect:
-
-- `density.copy` and `density.verify`: separate copy and checksum durations;
-- `process.started` and `process.return`: the shell command's lifetime;
-- `process.transition`: the interval between the previous shell return and
-  the next successful shell start, with the previous and current task context;
-- `recovery.scan`, `recovery.check`, and `results.commit`: preparation and
-  result-processing costs.
-
-FDVIB waits for the shell command to exit, including the configured launcher.
-The process timer does not detect the moment QE prints `JOB DONE` or separate
-QE computation from launcher startup and shutdown. A transition to dynmat
-also includes Hessian analysis. Preserved tasks do not count as new commands.
-Rejected recovery candidates may have error events even when the run succeeds.
-
-Every event includes `schema_version` (currently 1), `run_id`, `seq`, UTC
-`time`, and `elapsed_ms`. Timed operations add `operation_id`, `parent_id`
-when nested, and `phase`; end events add `duration_ms`, `status`, and an error
-when applicable. Task events include `job` and `attempt` when known. Durations
-use Go's monotonic clock; UTC timestamps allow comparison with other logs.
-
-The final `run.end` event reports total time, external-command time, FDVIB
-time (the remainder, including logging overhead), per-phase counts and
-inclusive durations, and the five slowest leaf operations. Nested phase
-totals overlap and must not be added together. A brief time summary is also
-printed to stderr. Logging adds overhead, so compare diagnostic runs with the
-same settings and resources.
-
-Failure to create a requested log stops the command before calculation work.
-A later write failure prints one notice, disables the file log, and allows
-calculation to continue. Close errors are reported without changing calculation
-success. Logs are written immediately without per-event disk synchronization;
-abrupt termination may leave an incomplete last line or missing final events.
-
-When reporting an issue, provide the program version, diagnostic log, relevant
-QE output, launch command, allocated resources, and the filesystem used for the
-calculation directory. Logs contain local paths and the configured shell
-command; review them before sharing. FDVIB does not dump the full environment,
-input contents, or density data into the diagnostic log.
-
 ## Required input files
 
 A calculation starts with these user files:
@@ -641,3 +559,85 @@ FDVIB uses [Quantum ESPRESSO](https://www.quantum-espresso.org/) as its
 electronic-structure backend, and its `.shm` exporter follows the documented
 input format of [Shermo](http://sobereva.com/soft/shermo/). We acknowledge the
 developers and contributors of both projects for their work.
+
+## Diagnostics
+
+Enable diagnostics when investigating a slow transition or a failed command:
+
+```bash
+fdvib --debug -inp fdvib.in
+fdvib modes fdvib/results --debug
+fdvib --debug --debug-log /scratch/fdvib-debug.jsonl -inp fdvib.in
+```
+
+The options may appear before or after the command. `--debug-log` requires
+`--debug`. Help and version requests do not create logs. Without `--debug`,
+the existing command output and calculation behavior are unchanged.
+
+Each invocation creates a private (0600) JSON Lines log. By default its unique
+name is `fdvib-debug-*.jsonl` in the current working directory, outside the
+calculation directory. The path is printed to stderr. A specified file must
+not exist, and its parent directory must already exist. Choose a path outside
+the FDVIB output directory to keep diagnostic files separate from calculation
+data, especially when starting with an empty output directory.
+
+Normal output remains on stdout. Additional progress appears on stderr:
+
+```text
+[fdvib debug] disp_0001_x_m: density.copy started
+[fdvib debug] disp_0001_x_m: density.copy success, 0.102 s
+[fdvib debug] disp_0001_x_m: density.verify started
+```
+
+Operations are logged before they execute, then again on completion with their
+duration and status. An operation with no end event has not recorded completion;
+it may still be running, or the process or logging may have stopped. This is
+not a calculation completion marker. Diagnostics never participate in dataset
+digests or recovery decisions.
+
+Calculation logs cover input and dataset checks, reference and displacement
+stages, recovery scans, attempt creation, input generation, density and PAW
+copying and verification, force-result commits, density cleanup, Hessian
+analysis, and dynmat execution. Export commands have command-level timing.
+The log records file sizes for displacement reference-density copies and
+the external command, working directory, output path, and exit code.
+
+For a pause between calculations, inspect:
+
+- `density.copy` and `density.verify`: separate copy and checksum durations;
+- `process.started` and `process.return`: the shell command's lifetime;
+- `process.transition`: the interval between the previous shell return and
+  the next successful shell start, with the previous and current task context;
+- `recovery.scan`, `recovery.check`, and `results.commit`: preparation and
+  result-processing costs.
+
+FDVIB waits for the shell command to exit, including the configured launcher.
+The process timer does not detect the moment QE prints `JOB DONE` or separate
+QE computation from launcher startup and shutdown. A transition to dynmat
+also includes Hessian analysis. Preserved tasks do not count as new commands.
+Rejected recovery candidates may have error events even when the run succeeds.
+
+Every event includes `schema_version` (currently 1), `run_id`, `seq`, UTC
+`time`, and `elapsed_ms`. Timed operations add `operation_id`, `parent_id`
+when nested, and `phase`; end events add `duration_ms`, `status`, and an error
+when applicable. Task events include `job` and `attempt` when known. Durations
+use Go's monotonic clock; UTC timestamps allow comparison with other logs.
+
+The final `run.end` event reports total time, external-command time, FDVIB
+time (the remainder, including logging overhead), per-phase counts and
+inclusive durations, and the five slowest leaf operations. Nested phase
+totals overlap and must not be added together. A brief time summary is also
+printed to stderr. Logging adds overhead, so compare diagnostic runs with the
+same settings and resources.
+
+Failure to create a requested log stops the command before calculation work.
+A later write failure prints one notice, disables the file log, and allows
+calculation to continue. Close errors are reported without changing calculation
+success. Logs are written immediately without per-event disk synchronization;
+abrupt termination may leave an incomplete last line or missing final events.
+
+When reporting an issue, provide the program version, diagnostic log, relevant
+QE output, launch command, allocated resources, and the filesystem used for the
+calculation directory. Logs contain local paths and the configured shell
+command; review them before sharing. FDVIB does not dump the full environment,
+input contents, or density data into the diagnostic log.
